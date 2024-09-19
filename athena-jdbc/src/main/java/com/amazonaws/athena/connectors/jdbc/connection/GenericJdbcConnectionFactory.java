@@ -97,7 +97,8 @@ public class GenericJdbcConnectionFactory
             return URLEncoder.encode(value, StandardCharsets.UTF_8.toString());
         }
         catch (UnsupportedEncodingException ex) {
-            throw new RuntimeException(ex);
+            throw new AthenaConnectorException("Unsupported Encoding Exception: ",
+                    new ErrorDetails().withErrorCode(FederationSourceErrorCode.OperationNotSupportedException.toString()).withErrorMessage(ex.getMessage()));
         }
     }
 }
