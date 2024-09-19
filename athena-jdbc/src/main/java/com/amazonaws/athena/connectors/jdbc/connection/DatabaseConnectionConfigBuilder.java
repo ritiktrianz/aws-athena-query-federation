@@ -101,7 +101,7 @@ public class DatabaseConnectionConfigBuilder
         for (Map.Entry<String, String> property : this.properties.entrySet()) {
             final String key = property.getKey();
             final String value = property.getValue();
-    
+
             String catalogName;
             if (DEFAULT_CONNECTION_STRING_PROPERTY.equals(key.toLowerCase())) {
                 catalogName = key.toLowerCase();
