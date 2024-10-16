@@ -28,6 +28,7 @@ import com.amazonaws.athena.connector.lambda.data.SupportedTypes;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.spill.SpillLocation;
+import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import com.amazonaws.athena.connector.lambda.handlers.MetadataHandler;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsRequest;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsResponse;
@@ -46,6 +47,8 @@ import com.amazonaws.athena.connectors.jdbc.qpt.JdbcQueryPassthrough;
 import com.amazonaws.athena.connectors.jdbc.splits.Splitter;
 import com.amazonaws.athena.connectors.jdbc.splits.SplitterFactory;
 import com.amazonaws.services.athena.AmazonAthena;
+import com.amazonaws.services.glue.model.ErrorDetails;
+import com.amazonaws.services.glue.model.FederationSourceErrorCode;
 import com.amazonaws.services.secretsmanager.AWSSecretsManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -164,6 +167,10 @@ public abstract class JdbcMetadataHandler
                 }
             }
             return schemaNames.build();
+        }
+        catch (Exception ex)
+        {
+            throw new AthenaConnectorException("Invalid credentials was specified", new ErrorDetails().withErrorCode(FederationSourceErrorCode.InvalidCredentialsException.toString()));
         }
     }
 
