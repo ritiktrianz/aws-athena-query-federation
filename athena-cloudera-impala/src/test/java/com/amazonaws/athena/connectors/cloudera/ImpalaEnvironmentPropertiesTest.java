@@ -42,13 +42,13 @@ public class ImpalaEnvironmentPropertiesTest {
         connectionProperties.put(HOST, "50.100.00.10");
         connectionProperties.put(DATABASE, "default");
         connectionProperties.put(SECRET_NAME, "testSecret");
-        connectionProperties.put(PORT, "49172");
         impalaEnvironmentProperties = new ImpalaEnvironmentProperties();
-
     }
 
     @Test
-    public void ImpalaConnectionPropertiesTest() {
+    public void impalaconnectionPropertiesTest() {
+
+        connectionProperties.put(PORT, "49172");
 
         Map<String, String> impalaConnectionProperties = impalaEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
 
