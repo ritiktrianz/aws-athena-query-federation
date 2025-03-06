@@ -65,10 +65,14 @@ Parameters:
 
 Conditions:
   HasPermissionsBoundary: !Not [ !Equals [ !Ref PermissionsBoundaryARN, "" ] ]
-  HasSecurityGroups: !Not [ !Equals [ !Join ["", !Ref SecurityGroupIds], "" ] ]
-  HasSubnets: !Not [ !Equals [ !Join ["", !Ref SubnetIds], "" ] ]
-  IsRegionBAH: !Equals [!Ref "AWS::Region", "me-south-1"]
-  IsRegionHKG: !Equals [!Ref "AWS::Region", "ap-east-1"]
+  HasSecurityGroups: !Not [ !Equals [ !Join [ "", !Ref SecurityGroupIds ], "" ] ]
+  HasSubnets: !Not [ !Equals [ !Join [ "", !Ref SubnetIds ], "" ] ]
+  HasKmsKeyId: !Not [ !Equals [ !Ref KmsKeyId, "" ] ]
+  NotHasLambdaRole: !Equals [ !Ref LambdaRoleArn, "" ]
+  CreateKmsPolicy: !And [ !Condition HasKmsKeyId, !Condition NotHasLambdaRole ]
+  IsRegionBAH: !Equals [ !Ref "AWS::Region", "me-south-1" ]
+  IsRegionHKG: !Equals [ !Ref "AWS::Region", "ap-east-1" ]
+
 Resources:
   JdbcConnectorConfig:
     Type: 'AWS::Serverless::Function'
