@@ -217,9 +217,9 @@ public abstract class JdbcMetadataHandler
 
             String token = listTablesRequest.getNextToken();
             int pageSize = listTablesRequest.getPageSize();
-            String adjustedSchemaName = caseResolver.getAdjustedSchemaNameString(connection, listTablesRequest.getSchemaName(), configOptions);
 
             if (pageSize == UNLIMITED_PAGE_SIZE_VALUE && token == null) { // perform no pagination
+                String adjustedSchemaName = caseResolver.getAdjustedSchemaNameString(connection, listTablesRequest.getSchemaName(), configOptions);
                 LOGGER.info("doListTables - NO pagination");
                 return new ListTablesResponse(listTablesRequest.getCatalogName(), listTables(connection, adjustedSchemaName), null);
             }
@@ -414,12 +414,13 @@ public abstract class JdbcMetadataHandler
             }
 
             if (!found) {
-                throw new AthenaConnectorException(String.format("Could not find table %s in %s", tableName.getTableName(), tableName.getSchemaName()),
-                        ErrorDetails.builder().errorCode(FederationSourceErrorCode.ENTITY_NOT_FOUND_EXCEPTION.toString()).build());
+                // log a warning if table columns are not found
+                LOGGER.warn("getSchema: Could not find table {} in {}", tableName.getTableName(), tableName.getSchemaName());
             }
-
-            // add partition columns
-            partitionSchema.getFields().forEach(schemaBuilder::addField);
+            else {
+                // add partition columns
+                partitionSchema.getFields().forEach(schemaBuilder::addField);
+            }
 
             return schemaBuilder.build();
         }
