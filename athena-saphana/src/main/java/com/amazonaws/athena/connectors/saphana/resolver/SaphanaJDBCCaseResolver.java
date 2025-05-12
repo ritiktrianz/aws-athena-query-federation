@@ -20,7 +20,6 @@
 package com.amazonaws.athena.connectors.saphana.resolver;
 
 import com.amazonaws.athena.connectors.jdbc.resolver.DefaultJDBCCaseResolver;
-import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,12 +37,6 @@ public class SaphanaJDBCCaseResolver
     public SaphanaJDBCCaseResolver(String sourceType)
     {
         super(sourceType, FederationSDKCasingMode.ANNOTATION, FederationSDKCasingMode.NONE);
-    }
-
-    @VisibleForTesting
-    public SaphanaJDBCCaseResolver(String sourceType, FederationSDKCasingMode casingMode)
-    {
-        super(sourceType, casingMode, casingMode);
     }
 
     @Override
