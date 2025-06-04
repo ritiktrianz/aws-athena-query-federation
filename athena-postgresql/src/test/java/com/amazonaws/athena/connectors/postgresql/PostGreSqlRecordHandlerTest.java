@@ -32,6 +32,7 @@ import com.amazonaws.athena.connectors.jdbc.TestBase;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connector.credentials.CredentialsProvider;
+import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +58,8 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.amazonaws.athena.connectors.postgresql.PostGreSqlConstants.POSTGRES_NAME;
 import static org.mockito.ArgumentMatchers.any;
@@ -248,5 +251,48 @@ public class PostGreSqlRecordHandlerTest extends TestBase
         ValueSet valueSet = Mockito.mock(SortedRangeSet.class, Mockito.RETURNS_DEEP_STUBS);
         Mockito.when(valueSet.getRanges().getOrderedRanges()).thenReturn(Collections.singletonList(range));
         return valueSet;
+    }
+
+    @Test
+    public void testConfigOptionsConstructor() {
+        Map<String, String> configOptions = new HashMap<>();
+        configOptions.put("default_database", "test_db");
+        configOptions.put("postgres_jdbc_connection_string", "jdbc:postgresql://hostname:5432/test_db");
+
+        try (MockedStatic<JDBCUtil> jdbcUtilMock = Mockito.mockStatic(JDBCUtil.class)) {
+            DatabaseConnectionConfig mockConfig = new DatabaseConnectionConfig("default", POSTGRES_NAME,
+                    "jdbc:postgresql://hostname:5432/test_db");
+            jdbcUtilMock.when(() -> JDBCUtil.getSingleDatabaseConfigFromEnv(POSTGRES_NAME, configOptions))
+                    .thenReturn(mockConfig);
+
+            PostGreSqlRecordHandler handler = new PostGreSqlRecordHandler(configOptions);
+            Assert.assertNotNull(handler);
+        }
+    }
+
+
+    @Test
+    public void testDatabaseConfigConstructor()  {
+        DatabaseConnectionConfig config = new DatabaseConnectionConfig("testCatalog", POSTGRES_NAME,
+                "jdbc:postgresql://hostname:5432/test_db");
+        Map<String, String> configOptions = new HashMap<>();
+        configOptions.put("key1", "value1");
+
+        try (MockedStatic<S3Client> s3Mock = Mockito.mockStatic(S3Client.class);
+             MockedStatic<SecretsManagerClient> secretsMock = Mockito.mockStatic(SecretsManagerClient.class);
+             MockedStatic<AthenaClient> athenaMock = Mockito.mockStatic(AthenaClient.class)) {
+
+            S3Client mockS3 = Mockito.mock(S3Client.class);
+            s3Mock.when(S3Client::create).thenReturn(mockS3);
+
+            SecretsManagerClient mockSecrets = Mockito.mock(SecretsManagerClient.class);
+            secretsMock.when(SecretsManagerClient::create).thenReturn(mockSecrets);
+
+            AthenaClient mockAthena = Mockito.mock(AthenaClient.class);
+            athenaMock.when(AthenaClient::create).thenReturn(mockAthena);
+
+            PostGreSqlRecordHandler handler = new PostGreSqlRecordHandler(config, configOptions);
+            Assert.assertNotNull(handler);
+        }
     }
 }
