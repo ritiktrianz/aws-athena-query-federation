@@ -32,7 +32,8 @@ import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConsta
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.SECRET_NAME;
 import static org.junit.Assert.assertEquals;
 
-public class PostGreSqlEnvironmentPropertiesTest {
+public class PostGreSqlEnvironmentPropertiesTest
+{
     Map<String, String> connectionProperties;
     PostGreSqlEnvironmentProperties postGreSqlEnvironmentProperties;
 

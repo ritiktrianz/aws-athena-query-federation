@@ -28,7 +28,8 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
-public class PostgreSqlFederationExpressionParserTest {
+public class PostgreSqlFederationExpressionParserTest
+{
     private PostgreSqlFederationExpressionParser parser;
     private static final String QUOTE_CHAR = "\"";
 

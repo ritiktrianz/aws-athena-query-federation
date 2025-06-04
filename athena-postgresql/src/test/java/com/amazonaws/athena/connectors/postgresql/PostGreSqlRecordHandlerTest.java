@@ -269,30 +269,4 @@ public class PostGreSqlRecordHandlerTest extends TestBase
             Assert.assertNotNull(handler);
         }
     }
-
-
-    @Test
-    public void testDatabaseConfigConstructor()  {
-        DatabaseConnectionConfig config = new DatabaseConnectionConfig("testCatalog", POSTGRES_NAME,
-                "jdbc:postgresql://hostname:5432/test_db");
-        Map<String, String> configOptions = new HashMap<>();
-        configOptions.put("key1", "value1");
-
-        try (MockedStatic<S3Client> s3Mock = Mockito.mockStatic(S3Client.class);
-             MockedStatic<SecretsManagerClient> secretsMock = Mockito.mockStatic(SecretsManagerClient.class);
-             MockedStatic<AthenaClient> athenaMock = Mockito.mockStatic(AthenaClient.class)) {
-
-            S3Client mockS3 = Mockito.mock(S3Client.class);
-            s3Mock.when(S3Client::create).thenReturn(mockS3);
-
-            SecretsManagerClient mockSecrets = Mockito.mock(SecretsManagerClient.class);
-            secretsMock.when(SecretsManagerClient::create).thenReturn(mockSecrets);
-
-            AthenaClient mockAthena = Mockito.mock(AthenaClient.class);
-            athenaMock.when(AthenaClient::create).thenReturn(mockAthena);
-
-            PostGreSqlRecordHandler handler = new PostGreSqlRecordHandler(config, configOptions);
-            Assert.assertNotNull(handler);
-        }
-    }
 }
