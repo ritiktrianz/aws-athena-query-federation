@@ -461,7 +461,6 @@ public class PostGreSqlMetadataHandlerTest
         int[] types = {Types.VARCHAR, Types.VARCHAR};
         Object[][] values = {{"s0", "p0"}, {"s1", "p1"}};
         ResultSet resultSet = mockResultSet(columns, types, values, new AtomicInteger(-1));
-        final String expectedQuery = String.format(PostGreSqlMetadataHandler.GET_PARTITIONS_QUERY, tableName.getTableName(), tableName.getSchemaName());
         Mockito.when(preparedStatement.executeQuery()).thenReturn(resultSet);
 
         Mockito.when(this.connection.getMetaData().getSearchStringEscape()).thenReturn(null);
@@ -514,7 +513,7 @@ public class PostGreSqlMetadataHandlerTest
                 .addListField("date_array", new ArrowType.Date(DateUnit.DAY))
                 .addListField("timestamp_array", new ArrowType.Date(DateUnit.MILLISECOND))
                 .addListField("binary_array", new ArrowType.Utf8())
-                .addListField("decimal_array", new ArrowType.Decimal(38, 2))
+                .addListField("decimal_array", new ArrowType.Decimal(38, 2,128))
                 .addListField("string_array", new ArrowType.Utf8())
                 .addListField("uuid_array", new ArrowType.Utf8());
         postGreSqlMetadataHandler.getPartitionSchema("testCatalog").getFields()
