@@ -62,9 +62,15 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogGroupsReq
 import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogGroupsResponse;
 import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogStreamsRequest;
 import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogStreamsResponse;
+import software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsResponse;
+import software.amazon.awssdk.services.cloudwatchlogs.model.ResultField;
+import software.amazon.awssdk.services.cloudwatchlogs.model.StartQueryRequest;
+import software.amazon.awssdk.services.cloudwatchlogs.model.StartQueryResponse;
 import software.amazon.awssdk.services.cloudwatchlogs.model.LogGroup;
 import software.amazon.awssdk.services.cloudwatchlogs.model.LogStream;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesRequest;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesResponse;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -102,7 +108,6 @@ public class CloudwatchMetadataHandlerTest
 
     @Before
     public void setUp()
-            throws Exception
     {
         Mockito.lenient().when(mockAwsLogs.describeLogStreams(nullable(DescribeLogStreamsRequest.class))).thenAnswer((InvocationOnMock invocationOnMock) -> {
             return DescribeLogStreamsResponse.builder()
@@ -125,7 +130,6 @@ public class CloudwatchMetadataHandlerTest
 
     @After
     public void tearDown()
-            throws Exception
     {
         allocator.close();
     }
@@ -338,7 +342,7 @@ public class CloudwatchMetadataHandlerTest
                 "queryId",
                 "default",
                 new TableName("schema-1", "all_log_streams"),
-                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT),
+                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT,Collections.emptyMap()),
                 schema,
                 Collections.singleton("log_stream"));
 
@@ -383,7 +387,7 @@ public class CloudwatchMetadataHandlerTest
                 new TableName("schema", "all_log_streams"),
                 partitions,
                 Collections.singletonList(CloudwatchMetadataHandler.LOG_STREAM_FIELD),
-                new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT),
+                new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT,Collections.emptyMap()),
                 continuationToken);
         int numContinuations = 0;
         do {
@@ -414,4 +418,147 @@ public class CloudwatchMetadataHandlerTest
 
         logger.info("doGetSplits: exit");
     }
+
+    @Test
+    public void doGetDataSourceCapabilities() {
+        logger.info("doGetDataSourceCapabilities - enter");
+        GetDataSourceCapabilitiesRequest request = new GetDataSourceCapabilitiesRequest(identity, "queryId", "default");
+        GetDataSourceCapabilitiesResponse response = handler.doGetDataSourceCapabilities(allocator, request);
+        assertNotNull(response);
+        assertNotNull(response.getCapabilities());
+        logger.info("Capabilities keys: {}", response.getCapabilities().keySet());
+        assertFalse(response.getCapabilities().isEmpty());
+        logger.info("doGetDataSourceCapabilities - exit");
+    }
+
+    @Test
+    public void doGetSplitsWithContinuationToken()  {
+        logger.info("doGetSplitsWithContinuationToken - enter");
+        Mockito.lenient().when(mockAwsLogs.describeLogStreams(nullable(DescribeLogStreamsRequest.class))).thenAnswer((InvocationOnMock invocationOnMock) -> DescribeLogStreamsResponse.builder()
+                .logStreams(
+                        LogStream.builder().logStreamName("table-1").build(),
+                        LogStream.builder().logStreamName("table-2").build())
+                .build());
+        Schema schema = SchemaBuilder.newBuilder()
+                .addField(CloudwatchMetadataHandler.LOG_STREAM_FIELD, Types.MinorType.VARCHAR.getType())
+                .addField(CloudwatchMetadataHandler.LOG_STREAM_SIZE_FIELD, new ArrowType.Int(64, true))
+                .addField(CloudwatchMetadataHandler.LOG_GROUP_FIELD, Types.MinorType.VARCHAR.getType())
+                .build();
+        // Create more than MAX_SPLITS_PER_REQUEST partitions to force pagination
+        int numPartitions = CloudwatchMetadataHandler.MAX_SPLITS_PER_REQUEST + 10;
+        Block partitions = allocator.createBlock(schema);
+        for (int i = 0; i < numPartitions; i++) {
+            BlockUtils.setValue(partitions.getFieldVector(CloudwatchMetadataHandler.LOG_STREAM_FIELD), i, "log_stream_" + i);
+            BlockUtils.setValue(partitions.getFieldVector(CloudwatchMetadataHandler.LOG_STREAM_SIZE_FIELD), i, 1000L + i);
+            BlockUtils.setValue(partitions.getFieldVector(CloudwatchMetadataHandler.LOG_GROUP_FIELD), i, "log_group_" + i);
+        }
+        partitions.setRowCount(numPartitions);
+        GetSplitsRequest originalReq = new GetSplitsRequest(identity, "queryId", "default",
+                new TableName("schema-1", "all_log_streams"),
+                partitions,
+                Collections.singletonList(CloudwatchMetadataHandler.LOG_STREAM_FIELD),
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT,Collections.emptyMap()),
+                null);
+        int numContinuations = 0;
+        String continuationToken = null;
+        do {
+            GetSplitsRequest req = new GetSplitsRequest(originalReq, continuationToken);
+            GetSplitsResponse response = handler.doGetSplits(allocator, req);
+            continuationToken = response.getContinuationToken();
+            assertNotNull(response.getSplits());
+            for (Split nextSplit : response.getSplits()) {
+                assertNotNull(nextSplit.getProperty(CloudwatchMetadataHandler.LOG_STREAM_SIZE_FIELD));
+                assertNotNull(nextSplit.getProperty(CloudwatchMetadataHandler.LOG_STREAM_FIELD));
+                assertNotNull(nextSplit.getProperty(CloudwatchMetadataHandler.LOG_GROUP_FIELD));
+            }
+            if (continuationToken != null) {
+                numContinuations++;
+            }
+        } while (continuationToken != null);
+        assertTrue(numContinuations > 0);
+        logger.info("doGetSplitsWithContinuationToken - exit");
+    }
+
+    @Test
+    public void doGetQueryPassthroughSchema() throws Exception {
+        logger.info("doGetQueryPassthroughSchema - enter");
+
+        // Setup common variables
+        String catalogName = "default";
+        String queryId = "queryId";
+        TableName tableName = new TableName("schema-1", "qpt_table");
+        Map<String, String> qptArguments = new HashMap<>();
+        qptArguments.put("STARTTIME", "0");
+        qptArguments.put("ENDTIME", "1000");
+        qptArguments.put("QUERYSTRING", "SELECT field1, field2 FROM logs");
+        qptArguments.put("LOGGROUPNAMES", "group1");
+        qptArguments.put("LIMIT", "1");
+
+        // Test Case 1: Happy Path - Non-empty result set
+        List<ResultField> resultFields = new ArrayList<>();
+        resultFields.add(ResultField.builder().field("field1").value("value1").build());
+        resultFields.add(ResultField.builder().field("field2").value("value2").build());
+        logger.info("doGetQueryPassthroughSchema - ResultFields created: {}", resultFields);
+
+        GetQueryResultsResponse queryResultsResponse = GetQueryResultsResponse.builder()
+                .results(Collections.singletonList(resultFields))
+                .status("Complete")
+                .build();
+
+        // Mock StartQuery and GetQueryResults for CloudwatchUtils.getResult
+        when(mockAwsLogs.startQuery(nullable(StartQueryRequest.class)))
+                .thenReturn(StartQueryResponse.builder().queryId("query123").build());
+        when(mockAwsLogs.getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class)))
+                .thenReturn(queryResultsResponse);
+
+        GetTableRequest req = new GetTableRequest(identity, queryId, catalogName, tableName, qptArguments);
+        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+        logger.info("doGetQueryPassthroughSchema - TableName: {}, Schema: {}", res.getTableName(), res.getSchema());
+
+        // Assertions for happy path
+        assertEquals(catalogName, res.getCatalogName());
+        assertEquals(tableName, res.getTableName());
+        Schema schema = res.getSchema();
+        assertNotNull(schema);
+        assertEquals(2, schema.getFields().size());
+        assertEquals("field1", schema.getFields().get(0).getName());
+        assertEquals(Types.MinorType.VARCHAR.getType(), schema.getFields().get(0).getType());
+        assertEquals("field2", schema.getFields().get(1).getName());
+        assertEquals(Types.MinorType.VARCHAR.getType(), schema.getFields().get(1).getType());
+
+        verify(mockAwsLogs, times(1)).startQuery(nullable(StartQueryRequest.class));
+        verify(mockAwsLogs, times(1)).getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class));
+
+        // Test Case 2: Empty Result Set
+        when(mockAwsLogs.getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class)))
+                .thenReturn(GetQueryResultsResponse.builder().results(Collections.emptyList()).status("Complete").build());
+
+        res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+        logger.info("doGetQueryPassthroughSchema - Empty Result Schema: {}", res.getSchema());
+
+        // Assertions for empty result
+        assertEquals(catalogName, res.getCatalogName());
+        assertEquals(tableName, res.getTableName());
+        assertNotNull(res.getSchema());
+        assertEquals(0, res.getSchema().getFields().size());
+
+        verify(mockAwsLogs, times(2)).getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class));
+
+        // Test Case 3: Invalid Request (Non-QPT)
+        GetTableRequest nonQptReq = new GetTableRequest(identity, queryId, catalogName, tableName, Collections.emptyMap());
+        Exception exception = null;
+        try {
+            handler.doGetQueryPassthroughSchema(allocator, nonQptReq);
+        } catch (IllegalArgumentException e) {
+            exception = e;
+        }
+
+        // Assertions for invalid request
+        assertNotNull(exception);
+        assertTrue(true);
+        logger.info("doGetQueryPassthroughSchema - exit");
+    }
 }
+
