@@ -62,9 +62,15 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogGroupsReq
 import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogGroupsResponse;
 import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogStreamsRequest;
 import software.amazon.awssdk.services.cloudwatchlogs.model.DescribeLogStreamsResponse;
+import software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsResponse;
+import software.amazon.awssdk.services.cloudwatchlogs.model.ResultField;
+import software.amazon.awssdk.services.cloudwatchlogs.model.StartQueryRequest;
+import software.amazon.awssdk.services.cloudwatchlogs.model.StartQueryResponse;
 import software.amazon.awssdk.services.cloudwatchlogs.model.LogGroup;
 import software.amazon.awssdk.services.cloudwatchlogs.model.LogStream;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesRequest;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesResponse;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,6 +93,9 @@ public class CloudwatchMetadataHandlerTest
 {
     private static final Logger logger = LoggerFactory.getLogger(CloudwatchMetadataHandlerTest.class);
 
+    private static final String CATALOG_NAME = "default";
+    private static final String QUERY_ID = "queryId";
+
     private FederatedIdentity identity = new FederatedIdentity("arn", "account", Collections.emptyMap(), Collections.emptyList());
     private CloudwatchMetadataHandler handler;
     private BlockAllocator allocator;
@@ -102,7 +111,6 @@ public class CloudwatchMetadataHandlerTest
 
     @Before
     public void setUp()
-            throws Exception
     {
         Mockito.lenient().when(mockAwsLogs.describeLogStreams(nullable(DescribeLogStreamsRequest.class))).thenAnswer((InvocationOnMock invocationOnMock) -> {
             return DescribeLogStreamsResponse.builder()
@@ -125,7 +133,6 @@ public class CloudwatchMetadataHandlerTest
 
     @After
     public void tearDown()
-            throws Exception
     {
         allocator.close();
     }
@@ -338,7 +345,7 @@ public class CloudwatchMetadataHandlerTest
                 "queryId",
                 "default",
                 new TableName("schema-1", "all_log_streams"),
-                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT),
+                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT,Collections.emptyMap()),
                 schema,
                 Collections.singleton("log_stream"));
 
@@ -383,7 +390,7 @@ public class CloudwatchMetadataHandlerTest
                 new TableName("schema", "all_log_streams"),
                 partitions,
                 Collections.singletonList(CloudwatchMetadataHandler.LOG_STREAM_FIELD),
-                new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT),
+                new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT,Collections.emptyMap()),
                 continuationToken);
         int numContinuations = 0;
         do {
@@ -414,4 +421,112 @@ public class CloudwatchMetadataHandlerTest
 
         logger.info("doGetSplits: exit");
     }
+
+    @Test
+    public void doGetDataSourceCapabilities() {
+        logger.info("doGetDataSourceCapabilities - enter");
+        GetDataSourceCapabilitiesRequest request = new GetDataSourceCapabilitiesRequest(identity, QUERY_ID, CATALOG_NAME);
+        GetDataSourceCapabilitiesResponse response = handler.doGetDataSourceCapabilities(allocator, request);
+        assertNotNull(response);
+        assertNotNull(response.getCapabilities());
+        logger.info("Capabilities keys: {}", response.getCapabilities().keySet());
+        assertFalse(response.getCapabilities().isEmpty());
+        logger.info("doGetDataSourceCapabilities - exit");
+    }
+
+
+    @Test
+    public void doGetQueryPassthroughSchema() {
+        try {
+            logger.info("doGetQueryPassthroughSchema - enter");
+            TableName tableName = new TableName("schema-1", "qpt_table");
+            Map<String, String> qptArguments = new HashMap<>();
+            qptArguments.put("STARTTIME", "0");
+            qptArguments.put("ENDTIME", "1000");
+            qptArguments.put("QUERYSTRING", "SELECT field1, field2 FROM logs");
+            qptArguments.put("LOGGROUPNAMES", "group1");
+            qptArguments.put("LIMIT", "1");
+
+            List<ResultField> resultFields = new ArrayList<>();
+            resultFields.add(ResultField.builder().field("field1").value("value1").build());
+            resultFields.add(ResultField.builder().field("field2").value("value2").build());
+            logger.info("doGetQueryPassthroughSchema - ResultFields created: {}", resultFields);
+
+            GetQueryResultsResponse queryResultsResponse = GetQueryResultsResponse.builder()
+                    .results(Collections.singletonList(resultFields))
+                    .status("Complete")
+                    .build();
+
+            when(mockAwsLogs.startQuery(nullable(StartQueryRequest.class)))
+                    .thenReturn(StartQueryResponse.builder().queryId("query123").build());
+            when(mockAwsLogs.getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class)))
+                    .thenReturn(queryResultsResponse);
+
+            GetTableRequest req = new GetTableRequest(identity, QUERY_ID, CATALOG_NAME, tableName, qptArguments);
+            GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+            logger.info("doGetQueryPassthroughSchema - TableName: {}, Schema: {}", res.getTableName(), res.getSchema());
+
+            assertEquals(CATALOG_NAME, res.getCatalogName());
+            assertEquals(tableName, res.getTableName());
+            Schema schema = res.getSchema();
+            assertNotNull(schema);
+            assertEquals(2, schema.getFields().size());
+            assertEquals("field1", schema.getFields().get(0).getName());
+            assertEquals(Types.MinorType.VARCHAR.getType(), schema.getFields().get(0).getType());
+            assertEquals("field2", schema.getFields().get(1).getName());
+            assertEquals(Types.MinorType.VARCHAR.getType(), schema.getFields().get(1).getType());
+
+            verify(mockAwsLogs, times(1)).startQuery(nullable(StartQueryRequest.class));
+            verify(mockAwsLogs, times(1)).getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class));
+
+            when(mockAwsLogs.getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class)))
+                    .thenReturn(GetQueryResultsResponse.builder().results(Collections.emptyList()).status("Complete").build());
+
+            res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+            logger.info("doGetQueryPassthroughSchema - Empty Result Schema: {}", res.getSchema());
+
+            assertEquals(CATALOG_NAME, res.getCatalogName());
+            assertEquals(tableName, res.getTableName());
+            assertNotNull(res.getSchema());
+            assertEquals(0, res.getSchema().getFields().size());
+
+            verify(mockAwsLogs, times(2)).getQueryResults(nullable(software.amazon.awssdk.services.cloudwatchlogs.model.GetQueryResultsRequest.class));
+
+            GetTableRequest nonQptReq = new GetTableRequest(identity, QUERY_ID, CATALOG_NAME, tableName, Collections.emptyMap());
+            Exception exception = null;
+            try {
+                handler.doGetQueryPassthroughSchema(allocator, nonQptReq);
+            } catch (IllegalArgumentException e) {
+                exception = e;
+            }
+
+            assertNotNull(exception);
+            logger.info("doGetQueryPassthroughSchema - exit");
+        } catch (Exception e) {
+            fail("Unexpected exception in test: " + e.getMessage());
+        }
+    }
+
+
+    @Test
+    public void testEnhancePartitionSchemaForQueryPassthrough() {
+        logger.info("testEnhancePartitionSchemaForQueryPassthrough - enter");
+
+        SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
+        GetTableLayoutRequest request = new GetTableLayoutRequest(identity, QUERY_ID, CATALOG_NAME,
+                new TableName("system", "query"),
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap()),
+                schemaBuilder.build(),
+                Collections.emptySet());
+
+        handler.enhancePartitionSchema(schemaBuilder, request);
+
+        assertEquals(0, schemaBuilder.build().getFields().size());
+
+        logger.info("testEnhancePartitionSchemaForQueryPassthrough - exit");
+    }
+
 }
+
