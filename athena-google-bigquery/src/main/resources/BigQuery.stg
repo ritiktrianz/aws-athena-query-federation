@@ -1,0 +1,248 @@
+// NOTE: This template is not used in production code - kept for StringTemplate file structure
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: BigQueryQueryBuilder.java
+ *@Description: This template is used to build BigQuery SELECT statements with constraints, ordering, and limits.
+ *@param builder An Instance of BigQueryQueryBuilder.
+ *@return A SQL query that can be executed by BigQuery.
+ */
+select_query(builder) ::= <%
+    SELECT <if(builder.projection)><first(builder.projection): {col | `<col>`}><rest(builder.projection): {col | ,`<col>`}><else>null<endif> from `<builder.schemaName>`.`<builder.tableName>`<if(builder.conjuncts)> WHERE <first(builder.conjuncts): {conjunct | (<conjunct>)}><rest(builder.conjuncts): {conjunct |  AND (<conjunct>)}><endif><if(builder.orderByClause)> <builder.orderByClause><endif><if(builder.limitClause)> <builder.limitClause><endif>
+%>
+
+/**
+ *@UsedBy: BigQueryPredicateBuilder.java
+ *@Description: Template for simple comparison predicates (=, >, <, >=, <=, !=).
+ *@param columnName The column name (no backticks for storage API compatibility).
+ *@param operator The comparison operator.
+ *@return A comparison predicate like `column` > ?
+ */
+comparison_predicate(columnName, operator) ::= <%
+    `<columnName>` <operator> ?
+%>
+
+/**
+ *@UsedBy: BigQueryPredicateBuilder.java
+ *@Description: Template for IN predicates with parameterized values.
+ *@param columnName The column name (no backticks for storage API compatibility).
+ *@param parameterCount The number of parameters.
+ *@return An IN predicate like column IN (?,?)
+ */
+in_predicate(columnName, parameterCount) ::= <%
+    `<columnName>` IN (<parameterCount:{?}; separator=",">)
+%>
+
+/**
+ *@UsedBy: BigQueryPredicateBuilder.java
+ *@Description: Template for NULL checking predicates.
+ *@param columnName The column name (NO backticks for NULL predicates).
+ *@param isNull Whether checking for NULL (true) or NOT NULL (false).
+ *@return A null predicate like column IS NULL or column IS NOT NULL
+ */
+null_predicate(columnName, isNull) ::= <%
+    <columnName> IS <if(isNull)>NULL<else>NOT NULL<endif>
+%>
+
+/**
+ *@UsedBy: BigQueryPredicateBuilder.java
+ *@Description: Template for range predicates (BETWEEN-like conditions).
+ *@param conjuncts List of range conditions to join with AND.
+ *@return A range predicate like `column` >= ? AND `column` <= ?
+ */
+range_predicate(conjuncts) ::= <%
+    <conjuncts; separator=" AND ">
+%>
+
+/**
+ *@UsedBy: BigQueryPredicateBuilder.java
+ *@Description: Template for combining multiple predicates with OR.
+ *@param disjuncts List of predicates to join with OR.
+ *@return Combined predicates like (pred1) OR (pred2)
+ */
+or_predicate(disjuncts) ::= <%
+    <disjuncts:{d | (<d>)}; separator=" OR ">
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java
+ *@Description: Template for combining WHERE clauses with AND.
+ *@param clauses List of WHERE clause conditions to join with AND.
+ *@return A WHERE clause like clause1 AND clause2 AND clause3
+ */
+where_clause(clauses) ::= <%
+    <clauses; separator=" AND ">
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for binary operators (arithmetic and comparison).
+ *@param left Left operand.
+ *@param operator The operator (+, -, *, /, =, >, <, >=, <=, <>, etc.).
+ *@param right Right operand.
+ *@return A binary expression like left + right
+ */
+binary_operator(left, operator, right) ::= <%
+    <left> <operator> <right>
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for function calls with two arguments.
+ *@param functionName The function name.
+ *@param arg1 First argument.
+ *@param arg2 Second argument.
+ *@return A function call like MOD(arg1, arg2)
+ */
+function_call_2args(functionName, arg1, arg2) ::= <%
+    <functionName>(<arg1>, <arg2>)
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for unary operators.
+ *@param operator The unary operator (-, NOT, etc.).
+ *@param operand The operand.
+ *@return A unary expression like -operand or NOT operand
+ */
+unary_operator(operator, operand) ::= <%
+    <operator><operand>
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for IN expressions.
+ *@param column The column or expression.
+ *@param values The values for IN clause.
+ *@return An IN expression like column IN values
+ */
+in_expression(column, values) ::= <%
+    <column> IN <values>
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for IS DISTINCT FROM expressions.
+ *@param left Left operand.
+ *@param right Right operand.
+ *@return An IS DISTINCT FROM expression
+ */
+is_distinct_from(left, right) ::= <%
+    <left> IS DISTINCT FROM <right>
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for IS NULL expressions.
+ *@param operand The operand to check for NULL.
+ *@return An IS NULL expression
+ */
+is_null_expression(operand) ::= <%
+    <operand> IS NULL
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for LIKE expressions.
+ *@param column The column.
+ *@param pattern The pattern.
+ *@return A LIKE expression
+ */
+like_expression(column, pattern) ::= <%
+    <column> LIKE <pattern>
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for wrapping expressions in parentheses.
+ *@param expression The expression to wrap.
+ *@return A parenthesized expression
+ */
+parenthesized_expression(expression) ::= <%
+    (<expression>)
+%>
+
+/**
+ *@UsedBy: BigQueryFederationExpressionParser.java
+ *@Description: Template for comma-separated lists (no spaces - for constant expressions).
+ *@param items List of items to join with commas.
+ *@return A comma-separated list like item1,item2,item3
+ */
+comma_separated_list(items) ::= <%
+    <items; separator=",">
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java and other SQL contexts
+ *@Description: Template for comma-separated lists with spaces (for SQL IN clauses).
+ *@param items List of items to join with commas and spaces.
+ *@return A comma-separated list like item1, item2, item3
+ */
+comma_separated_list_spaced(items) ::= <%
+    <items; separator=", ">
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java
+ *@Description: Template for Storage API IN predicates (no backticks, no spaces after commas).
+ *@param columnName The column name without backticks.
+ *@param placeholderList List of placeholder values.
+ *@return Simple IN predicate like column IN (?)
+ */
+storage_api_in_predicate(columnName, placeholderList) ::= <%
+    <columnName> IN (<placeholderList; separator=",">)
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java
+ *@Description: Template for Storage API comparison predicates (no backticks).
+ *@param columnName The column name without backticks.
+ *@param operator The comparison operator (=, >, <, >=, <=, !=).
+ *@return Simple comparison predicate like column > ?
+ */
+storage_api_comparison_predicate(columnName, operator) ::= <%
+    <columnName> <operator> ?
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java
+ *@Description: Template for Storage API NULL predicates (no backticks).
+ *@param columnName The column name without backticks.
+ *@param isNull Whether checking for NULL (true) or NOT NULL (false).
+ *@return Simple null predicate like column IS NULL
+ */
+storage_api_null_predicate(columnName, isNull) ::= <%
+    <columnName> IS <if(isNull)>NULL<else>NOT NULL<endif>
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java
+ *@Description: Template for Storage API range predicates (no parentheses).
+ *@param conjuncts List of range conditions to join with AND.
+ *@return Simple range predicate like column >= ? AND column <= ?
+ */
+storage_api_range_predicate(conjuncts) ::= <%
+    <conjuncts; separator=" AND ">
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java
+ *@Description: Template for Storage API OR predicates (no extra parentheses).
+ *@param disjuncts List of predicates to join with OR.
+ *@return Simple OR predicate like pred1 OR pred2
+ */
+storage_api_or_predicate(disjuncts) ::= <%
+    <disjuncts; separator=" OR ">
+%>
+
+/**
+ *@UsedBy: BigQueryStorageApiUtils.java
+ *@Description: Template for Storage API comma-separated lists (no spaces after commas).
+ *@param items List of items to join with commas.
+ *@return Simple comma list like item1,item2,item3
+ */
+storage_api_comma_separated_list(items) ::= <%
+    <items; separator=",">
+%> 

@@ -29,8 +29,8 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.expression.Variabl
 import com.amazonaws.athena.connector.lambda.domain.predicate.functions.FunctionName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.functions.OperatorType;
 import com.amazonaws.athena.connector.lambda.domain.predicate.functions.StandardFunctions;
+import com.amazonaws.athena.connectors.google.bigquery.query.BigQueryQueryFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.FederationExpressionParser;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types;
@@ -39,6 +39,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.commons.lang3.NotImplementedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.stringtemplate.v4.ST;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,27 +49,51 @@ import static com.amazonaws.athena.connector.lambda.domain.predicate.expression.
 
 /**
  * Based on com.amazonaws.athena.connectors.jdbc.manager.JdbcFederationExpressionParser class
+ * Now uses StringTemplate for consistency with other BigQuery SQL generation.
  */
 public class BigQueryFederationExpressionParser extends FederationExpressionParser
 {
     private static final String quoteCharacter = "'";
     private static final Logger LOGGER = LoggerFactory.getLogger(BigQueryFederationExpressionParser.class);
+    private static final BigQueryQueryFactory queryFactory = new BigQueryQueryFactory();
 
     public String writeArrayConstructorClause(ArrowType type, List<String> arguments)
     {
-        return Joiner.on(", ").join(arguments);
+        ST template = queryFactory.getQueryTemplate("comma_separated_list_spaced");
+        template.add("items", arguments);
+        return template.render().trim();
     }
 
     public List<String> parseComplexExpressions(List<Field> columns, Constraints constraints)
     {
+        LOGGER.info("BigQueryFederationExpressionParser.parseComplexExpressions() - ENTRY");
+        LOGGER.info("  Input columns count: {}", columns.size());
+        LOGGER.info("  Column names: {}", columns.stream().map(Field::getName).collect(Collectors.toList()));
+        
         if (constraints.getExpression() == null || constraints.getExpression().isEmpty()) {
+            LOGGER.info("  No federation expressions found in constraints");
+            LOGGER.info("BigQueryFederationExpressionParser.parseComplexExpressions() - EXIT (empty)");
             return ImmutableList.of();
         }
 
         List<FederationExpression> federationExpressions = constraints.getExpression();
-        return federationExpressions.stream()
-                .map(federationExpression -> parseFunctionCallExpression((FunctionCallExpression) federationExpression))
-                .collect(Collectors.toList());
+        LOGGER.info("  Found {} federation expressions to process", federationExpressions.size());
+        
+        List<String> results = new ArrayList<>();
+        for (int i = 0; i < federationExpressions.size(); i++) {
+            FederationExpression expression = federationExpressions.get(i);
+            LOGGER.info("  Processing federation expression #{}: {}", i + 1, expression.getClass().getSimpleName());
+            
+            String result = parseFunctionCallExpression((FunctionCallExpression) expression);
+            results.add(result);
+            
+            LOGGER.info("  Generated SQL clause #{}: {}", i + 1, result);
+        }
+        
+        LOGGER.info("BigQueryFederationExpressionParser.parseComplexExpressions() - EXIT");
+        LOGGER.info("  Total generated clauses: {}", results.size());
+        LOGGER.info("  Final results: {}", results);
+        return results;
     }
     /**
      * This is a recursive function, as function calls can have arguments which, themselves, are function calls.
@@ -80,147 +105,344 @@ public class BigQueryFederationExpressionParser extends FederationExpressionPars
         FunctionName functionName = functionCallExpression.getFunctionName();
         List<FederationExpression> functionArguments = functionCallExpression.getArguments();
 
-        List<String> arguments = functionArguments.stream()
-                .map(argument -> {
-                    // base cases
-                    if (argument instanceof ConstantExpression) {
-                        return parseConstantExpression((ConstantExpression) argument);
-                    }
-                    else if (argument instanceof VariableExpression) {
-                        return parseVariableExpression((VariableExpression) argument);
-                    }
-                    // recursive case
-                    else if (argument instanceof FunctionCallExpression) {
-                        return parseFunctionCallExpression((FunctionCallExpression) argument);
-                    }
-                    throw new RuntimeException("Should not reach this case - a new subclass was introduced and is not handled.");
-                }).collect(Collectors.toList());
+        LOGGER.info("  BigQueryFederationExpressionParser.parseFunctionCallExpression() - ENTRY");
+        LOGGER.info("    Function name: {}", functionName.getFunctionName());
+        LOGGER.info("    Function type: {}", functionCallExpression.getType());
+        LOGGER.info("    Arguments count: {}", functionArguments.size());
 
-        return mapFunctionToDataSourceSyntax(functionName, functionCallExpression.getType(), arguments);
+        List<String> arguments = new ArrayList<>();
+        for (int i = 0; i < functionArguments.size(); i++) {
+            FederationExpression argument = functionArguments.get(i);
+            LOGGER.info("    Processing argument #{}: {}", i + 1, argument.getClass().getSimpleName());
+            
+            String argumentResult;
+            // base cases
+            if (argument instanceof ConstantExpression) {
+                LOGGER.info("      Parsing ConstantExpression");
+                argumentResult = parseConstantExpression((ConstantExpression) argument);
+                LOGGER.info("      ConstantExpression result: {}", argumentResult);
+            }
+            else if (argument instanceof VariableExpression) {
+                LOGGER.info("      Parsing VariableExpression");
+                argumentResult = parseVariableExpression((VariableExpression) argument);
+                LOGGER.info("      VariableExpression result: {}", argumentResult);
+            }
+            // recursive case
+            else if (argument instanceof FunctionCallExpression) {
+                LOGGER.info("      Recursively parsing nested FunctionCallExpression");
+                argumentResult = parseFunctionCallExpression((FunctionCallExpression) argument);
+                LOGGER.info("      Nested FunctionCallExpression result: {}", argumentResult);
+            }
+            else {
+                LOGGER.error("      Unknown expression type: {}", argument.getClass().getSimpleName());
+                throw new RuntimeException("Should not reach this case - a new subclass was introduced and is not handled.");
+            }
+            
+            arguments.add(argumentResult);
+        }
+
+        LOGGER.info("    All arguments processed: {}", arguments);
+
+        String finalResult = mapFunctionToDataSourceSyntax(functionName, functionCallExpression.getType(), arguments);
+        
+        LOGGER.info("  BigQueryFederationExpressionParser.parseFunctionCallExpression() - EXIT");
+        LOGGER.info("    Final SQL clause: {}", finalResult);
+        
+        return finalResult;
     }
 
     public String parseConstantExpression(ConstantExpression constantExpression)
     {
+        LOGGER.info("      BigQueryFederationExpressionParser.parseConstantExpression() - ENTRY");
+        LOGGER.info("        Constant type: {}", constantExpression.getType());
+        
         Block values = constantExpression.getValues();
         FieldReader fieldReader = values.getFieldReader(DEFAULT_CONSTANT_EXPRESSION_BLOCK_NAME);
 
-        List<String> constants = new ArrayList<>();
+        LOGGER.info("        Block row count: {}", values.getRowCount());
 
+        List<String> constants = new ArrayList<>();
         for (int i = 0; i < values.getRowCount(); i++) {
             fieldReader.setPosition(i);
             String strVal = BlockUtils.fieldToString(fieldReader);
             constants.add(strVal);
+            LOGGER.info("        Constant value #{}: {}", i + 1, strVal);
         }
+        
+        LOGGER.info("        Raw constants: {}", constants);
+        
         if (constantExpression.getType().equals(ArrowType.Utf8.INSTANCE)
                 || constantExpression.getType().equals(ArrowType.LargeUtf8.INSTANCE)
                 || fieldReader.getMinorType().equals(Types.MinorType.DATEDAY)) {
+            LOGGER.info("        Adding quotes to string/date constants");
             constants = constants.stream()
                     .map(val -> quoteCharacter + val + quoteCharacter)
                     .collect(Collectors.toList());
+            LOGGER.info("        Quoted constants: {}", constants);
         }
 
-        return Joiner.on(",").join(constants);
+        String result = createCommaSeparatedList(constants);
+        LOGGER.info("      BigQueryFederationExpressionParser.parseConstantExpression() - EXIT");
+        LOGGER.info("        Final constant result: {}", result);
+        return result;
+    }
+
+    public String parseVariableExpression(VariableExpression variableExpression)
+    {
+        LOGGER.info("      BigQueryFederationExpressionParser.parseVariableExpression() - ENTRY");
+        LOGGER.info("        Variable name: {}", variableExpression.getColumnName());
+        LOGGER.info("        Variable type: {}", variableExpression.getType());
+        
+        String result = variableExpression.getColumnName();
+        
+        LOGGER.info("      BigQueryFederationExpressionParser.parseVariableExpression() - EXIT");
+        LOGGER.info("        Variable result: {}", result);
+        return result;
     }
 
     @Override
     public String mapFunctionToDataSourceSyntax(FunctionName functionName, ArrowType type, List<String> arguments)
     {
+        LOGGER.info("    BigQueryFederationExpressionParser.mapFunctionToDataSourceSyntax() - ENTRY");
+        LOGGER.info("      Function name: {}", functionName.getFunctionName());
+        LOGGER.info("      Return type: {}", type);
+        LOGGER.info("      Arguments: {}", arguments);
+        
         StandardFunctions functionEnum = StandardFunctions.fromFunctionName(functionName);
         OperatorType operatorType = functionEnum.getOperatorType();
 
+        LOGGER.info("      Standard function enum: {}", functionEnum);
+        LOGGER.info("      Operator type: {}", operatorType);
+
         if (arguments == null || arguments.size() == 0) {
+            LOGGER.error("      Arguments cannot be null or empty");
             throw new IllegalArgumentException("Arguments cannot be null or empty.");
         }
+        
         switch (operatorType) {
             case UNARY:
+                LOGGER.info("      Validating UNARY function with {} arguments", arguments.size());
                 if (arguments.size() != 1) {
+                    LOGGER.error("      UNARY function {} requires 1 argument, got {}", functionName.getFunctionName(), arguments.size());
                     throw new IllegalArgumentException("Unary function type " + functionName.getFunctionName() + " was provided with " + arguments.size() + " arguments.");
                 }
                 break;
             case BINARY:
+                LOGGER.info("      Validating BINARY function with {} arguments", arguments.size());
                 if (arguments.size() != 2) {
+                    LOGGER.error("      BINARY function {} requires 2 arguments, got {}", functionName.getFunctionName(), arguments.size());
                     throw new IllegalArgumentException("Binary function type " + functionName.getFunctionName() + " was provided with " + arguments.size() + " arguments.");
                 }
                 break;
             case VARARG:
+                LOGGER.info("      VARARG function - accepting {} arguments", arguments.size());
                 break;
             default:
+                LOGGER.error("      Unknown operator type: {}", operatorType);
                 throw new RuntimeException("A new operator type was introduced without adding support for it.");
         }
 
         String clause = "";
+        LOGGER.info("      Mapping function {} to BigQuery syntax", functionEnum);
+        
         switch (functionEnum) {
             case ADD_FUNCTION_NAME:
-                clause = Joiner.on(" + ").join(arguments);
+                LOGGER.info("      Processing ADD operation: {} + {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "+", arguments.get(1));
                 break;
             case AND_FUNCTION_NAME:
-                clause = Joiner.on(" AND ").join(arguments);
+                LOGGER.info("      Processing AND operation: {} AND {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "AND", arguments.get(1));
                 break;
-            case ARRAY_CONSTRUCTOR_FUNCTION_NAME: // up to subclass
+            case ARRAY_CONSTRUCTOR_FUNCTION_NAME:
+                LOGGER.info("      Processing ARRAY_CONSTRUCTOR with {} elements", arguments.size());
                 clause = writeArrayConstructorClause(type, arguments);
                 break;
             case DIVIDE_FUNCTION_NAME:
-                clause = Joiner.on(" / ").join(arguments);
+                LOGGER.info("      Processing DIVIDE operation: {} / {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "/", arguments.get(1));
                 break;
             case EQUAL_OPERATOR_FUNCTION_NAME:
-                clause = Joiner.on(" = ").join(arguments);
+                LOGGER.info("      Processing EQUAL operation: {} = {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "=", arguments.get(1));
                 break;
             case GREATER_THAN_OPERATOR_FUNCTION_NAME:
-                clause = Joiner.on(" > ").join(arguments);
+                LOGGER.info("      Processing GREATER_THAN operation: {} > {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), ">", arguments.get(1));
                 break;
             case GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME:
-                clause = Joiner.on(" >= ").join(arguments);
+                LOGGER.info("      Processing GREATER_THAN_OR_EQUAL operation: {} >= {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), ">=", arguments.get(1));
                 break;
             case IN_PREDICATE_FUNCTION_NAME:
-                clause = arguments.get(0) + " IN " + arguments.get(1);
+                LOGGER.info("      Processing IN operation: {} IN {}", arguments.get(0), arguments.get(1));
+                clause = createInExpression(arguments.get(0), arguments.get(1));
                 break;
             case IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME:
-                String argZero = arguments.get(0);
-                String argOne = arguments.get(1);
-                clause = argZero + " IS DISTINCT FROM " + argOne;
+                LOGGER.info("      Processing IS_DISTINCT_FROM operation: {} IS DISTINCT FROM {}", arguments.get(0), arguments.get(1));
+                clause = createIsDistinctFrom(arguments.get(0), arguments.get(1));
                 break;
             case IS_NULL_FUNCTION_NAME:
-                clause = arguments.get(0) + " IS NULL";
+                LOGGER.info("      Processing IS_NULL operation: {} IS NULL", arguments.get(0));
+                clause = createIsNullExpression(arguments.get(0));
                 break;
             case LESS_THAN_OPERATOR_FUNCTION_NAME:
-                clause = Joiner.on(" < ").join(arguments);
+                LOGGER.info("      Processing LESS_THAN operation: {} < {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "<", arguments.get(1));
                 break;
             case LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME:
-                clause = Joiner.on(" <= ").join(arguments);
+                LOGGER.info("      Processing LESS_THAN_OR_EQUAL operation: {} <= {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "<=", arguments.get(1));
                 break;
             case LIKE_PATTERN_FUNCTION_NAME:
-                clause = arguments.get(0) + " LIKE " + arguments.get(1);
+                LOGGER.info("      Processing LIKE operation: {} LIKE {}", arguments.get(0), arguments.get(1));
+                clause = createLikeExpression(arguments.get(0), arguments.get(1));
                 break;
             case MODULUS_FUNCTION_NAME:
-                clause = " MOD(" + arguments.get(0) + "," + arguments.get(1) + ")";
+                LOGGER.info("      Processing MODULUS operation: MOD({}, {})", arguments.get(0), arguments.get(1));
+                clause = createFunctionCall2Args("MOD", arguments.get(0), arguments.get(1));
                 break;
             case MULTIPLY_FUNCTION_NAME:
-                clause = Joiner.on(" * ").join(arguments);
+                LOGGER.info("      Processing MULTIPLY operation: {} * {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "*", arguments.get(1));
                 break;
             case NEGATE_FUNCTION_NAME:
-                clause = "-" + arguments.get(0);
+                LOGGER.info("      Processing NEGATE operation: -{}", arguments.get(0));
+                clause = createUnaryOperator("-", arguments.get(0));
                 break;
             case NOT_EQUAL_OPERATOR_FUNCTION_NAME:
-                clause = Joiner.on(" <> ").join(arguments);
+                LOGGER.info("      Processing NOT_EQUAL operation: {} <> {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "<>", arguments.get(1));
                 break;
             case NOT_FUNCTION_NAME:
-                clause = " NOT " + arguments.get(0);
+                LOGGER.info("      Processing NOT operation: NOT {}", arguments.get(0));
+                clause = createUnaryOperator("NOT", arguments.get(0));
                 break;
             case NULLIF_FUNCTION_NAME:
-                clause = "NULLIF(" + arguments.get(0) + ", " + arguments.get(1) + ")";
+                LOGGER.info("      Processing NULLIF operation: NULLIF({}, {})", arguments.get(0), arguments.get(1));
+                clause = createFunctionCall2Args("NULLIF", arguments.get(0), arguments.get(1));
                 break;
             case OR_FUNCTION_NAME:
-                clause = Joiner.on(" OR ").join(arguments);
+                LOGGER.info("      Processing OR operation: {} OR {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "OR", arguments.get(1));
                 break;
             case SUBTRACT_FUNCTION_NAME:
-                clause = Joiner.on(" - ").join(arguments);
+                LOGGER.info("      Processing SUBTRACT operation: {} - {}", arguments.get(0), arguments.get(1));
+                clause = createBinaryOperator(arguments.get(0), "-", arguments.get(1));
                 break;
             default:
+                LOGGER.error("      Function {} is not implemented", functionName.getFunctionName());
                 throw new NotImplementedException("The function " + functionName.getFunctionName() + " does not have an implementation");
         }
+        
         if (clause == null) {
+            LOGGER.warn("      Generated clause is null, returning empty string");
             return "";
         }
-        return "(" + clause + ")";
+        
+        LOGGER.info("      Generated clause before parentheses: {}", clause);
+        String finalResult = createParenthesizedExpression(clause);
+        
+        LOGGER.info("    BigQueryFederationExpressionParser.mapFunctionToDataSourceSyntax() - EXIT");
+        LOGGER.info("      Final result: {}", finalResult);
+        return finalResult;
+    }
+
+    /**
+     * Creates a binary operator expression using StringTemplate
+     */
+    private static String createBinaryOperator(String left, String operator, String right)
+    {
+        ST template = queryFactory.getQueryTemplate("binary_operator");
+        template.add("left", left);
+        template.add("operator", operator);
+        template.add("right", right);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates a unary operator expression using StringTemplate
+     */
+    private static String createUnaryOperator(String operator, String operand)
+    {
+        ST template = queryFactory.getQueryTemplate("unary_operator");
+        template.add("operator", operator);
+        template.add("operand", operand);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates a function call with 2 arguments using StringTemplate
+     */
+    private static String createFunctionCall2Args(String functionName, String arg1, String arg2)
+    {
+        ST template = queryFactory.getQueryTemplate("function_call_2args");
+        template.add("functionName", functionName);
+        template.add("arg1", arg1);
+        template.add("arg2", arg2);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates an IN expression using StringTemplate
+     */
+    private static String createInExpression(String column, String values)
+    {
+        ST template = queryFactory.getQueryTemplate("in_expression");
+        template.add("column", column);
+        template.add("values", values);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates an IS DISTINCT FROM expression using StringTemplate
+     */
+    private static String createIsDistinctFrom(String left, String right)
+    {
+        ST template = queryFactory.getQueryTemplate("is_distinct_from");
+        template.add("left", left);
+        template.add("right", right);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates an IS NULL expression using StringTemplate
+     */
+    private static String createIsNullExpression(String operand)
+    {
+        ST template = queryFactory.getQueryTemplate("is_null_expression");
+        template.add("operand", operand);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates a LIKE expression using StringTemplate
+     */
+    private static String createLikeExpression(String column, String pattern)
+    {
+        ST template = queryFactory.getQueryTemplate("like_expression");
+        template.add("column", column);
+        template.add("pattern", pattern);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates a parenthesized expression using StringTemplate
+     */
+    private static String createParenthesizedExpression(String expression)
+    {
+        ST template = queryFactory.getQueryTemplate("parenthesized_expression");
+        template.add("expression", expression);
+        return template.render().trim();
+    }
+
+    /**
+     * Creates a comma-separated list using StringTemplate
+     */
+    private static String createCommaSeparatedList(List<String> items)
+    {
+        ST template = queryFactory.getQueryTemplate("comma_separated_list");
+        template.add("items", items);
+        return template.render().trim();
     }
 }
