@@ -34,9 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Used to build a BigQuery query using StringTemplate to separate formatting from parameter replacement.
- */
 public class BigQueryQueryBuilder
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(BigQueryQueryBuilder.class);
@@ -105,37 +102,6 @@ public class BigQueryQueryBuilder
         return parameterValues;
     }
 
-    // Public getters for StringTemplate access
-    public List<String> getProjection()
-    {
-        return projection;
-    }
-
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    public List<String> getConjuncts()
-    {
-        return conjuncts;
-    }
-
-    public String getOrderByClause()
-    {
-        return orderByClause;
-    }
-
-    public String getLimitClause()
-    {
-        return limitClause;
-    }
-
     public String build()
     {
         Validate.notNull(schemaName, "schemaName can not be null.");
@@ -163,15 +129,10 @@ public class BigQueryQueryBuilder
         return BIGQUERY_QUOTE_CHAR + identifier + BIGQUERY_QUOTE_CHAR;
     }
 
-    /**
-     * Based on com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder.extractOrderByClause() method
-     * @param constraints
-     * @return a string representing ORDER BY clause or an empty string if there is no ORDER BY clause
-     */
     private static String extractOrderByClause(Constraints constraints)
     {
         List<OrderByField> orderByClause = constraints.getOrderByClause();
-        if (orderByClause == null || orderByClause.size() == 0) {
+        if (orderByClause == null || orderByClause.isEmpty()) {
             return "";
         }
         return "ORDER BY " + orderByClause.stream()

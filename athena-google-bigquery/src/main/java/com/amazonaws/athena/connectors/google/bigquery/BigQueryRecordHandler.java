@@ -108,25 +108,16 @@ public class BigQueryRecordHandler
     @Override
     public void readWithConstraint(BlockSpiller spiller, ReadRecordsRequest recordsRequest, QueryStatusChecker queryStatusChecker) throws Exception
     {
-        logger.info("=== BIGQUERY QUERY EXECUTION FLOW START ===");
-        logger.info("Table: {}.{}", recordsRequest.getTableName().getSchemaName(), recordsRequest.getTableName().getTableName());
-        logger.info("Constraints: {}", recordsRequest.getConstraints());
-        logger.info("Is Query Passthrough: {}", recordsRequest.getConstraints().isQueryPassThrough());
-        
         List<QueryParameterValue> parameterValues = new ArrayList<>();
         invoker.setBlockSpiller(spiller);
         BigQuery bigQueryClient = BigQueryUtils.getBigQueryClient(configOptions);
 
         if (recordsRequest.getConstraints().isQueryPassThrough()) {
-            logger.info(" EXECUTION PATH: Query Passthrough");
             handleQueryPassthrough(spiller, recordsRequest, queryStatusChecker, parameterValues, bigQueryClient);
         }
         else {
-            logger.info(" EXECUTION PATH: Standard Query");
             handleStandardQuery(spiller, recordsRequest, queryStatusChecker, parameterValues, bigQueryClient);
         }
-        
-        logger.info("=== BIGQUERY QUERY EXECUTION FLOW END ===");
     }
 
     private void handleStandardQuery(BlockSpiller spiller,
@@ -139,26 +130,13 @@ public class BigQueryRecordHandler
         String datasetName = fixCaseForDatasetName(projectName, recordsRequest.getTableName().getSchemaName(), bigQueryClient);
         String tableName = fixCaseForTableName(projectName, datasetName, recordsRequest.getTableName().getTableName(), bigQueryClient);
 
-        logger.info(" TABLE TYPE DETECTION:");
-        logger.info("  Project: {}", projectName);
-        logger.info("  Dataset: {}", datasetName);
-        logger.info("  Table: {}", tableName);
-        
         TableId tableId = TableId.of(projectName, datasetName, tableName);
         TableDefinition.Type type = bigQueryClient.getTable(tableId).getDefinition().getType();
-        
-        logger.info("  Detected Type: {}", type);
 
         if (type.equals(TableDefinition.Type.TABLE)) {
-            logger.info(" DATA ACCESS METHOD: Storage API (Direct) - NO StringTemplate");
-            logger.info("   Using BigQueryReadClient with Arrow format");
-            logger.info("   Constraints applied via Storage API filters");
             getTableData(spiller, recordsRequest, parameterValues, projectName, datasetName, tableName);
         }
         else {
-            logger.info(" DATA ACCESS METHOD:- USING StringTemplate");
-            logger.info("   Using StringTemplate for SQL generation");
-            logger.info("   Executing via BigQuery standard query API");
             getData(spiller, recordsRequest, queryStatusChecker, parameterValues, bigQueryClient, datasetName, tableName);
         }
     }
@@ -182,14 +160,8 @@ public class BigQueryRecordHandler
                          BigQuery bigQueryClient,
                          String datasetName, String tableName) throws TimeoutException
     {
-        logger.info("  STRINGTEMPLATE SQL GENERATION:");
-        logger.info("  Generating SQL for: {}.{}", datasetName, tableName);
-        
         String query = BigQuerySqlUtils.buildSql(new TableName(datasetName, tableName),
                 recordsRequest.getSchema(), recordsRequest.getConstraints(), parameterValues);
-        
-        logger.info("  Generated SQL: {}", query);
-        logger.info("  Parameter Values: {}", parameterValues);
         
         getData(spiller, recordsRequest, queryStatusChecker, parameterValues, bigQueryClient, query);
     }
@@ -201,7 +173,6 @@ public class BigQueryRecordHandler
                          BigQuery bigQueryClient,
                          String query) throws TimeoutException
     {
-        logger.info("  Executing SQL via BigQuery Standard Query API");
         logger.debug("Got Request with constraints: {}", recordsRequest.getConstraints());
         logger.debug("Executing SQL Query: {} for Split: {}", query, recordsRequest.getSplit());
         
@@ -227,13 +198,11 @@ public class BigQueryRecordHandler
 
         TableResult result = null;
         try {
-            logger.info("   Waiting for BigQuery job to complete...");
             while (true) {
                 if (queryJob.isDone()) {
                     Thread.sleep(1000);
                     result = invoker.invoke(() ->
                             queryJob.getQueryResults());
-                    logger.info("   BigQuery job completed successfully");
                     break;
                 }
                 else if (!queryStatusChecker.isQueryRunning()) {
@@ -249,19 +218,11 @@ public class BigQueryRecordHandler
             Thread.currentThread().interrupt();
         }
         
-        if (result != null) {
-            logger.info("  Processing {} rows from BigQuery result", result.getTotalRows());
-        }
-        
         outputResultsView(spiller, recordsRequest, result);
     }
 
     private void getTableData(BlockSpiller spiller, ReadRecordsRequest recordsRequest, List<QueryParameterValue> parameterValues, String projectName, String datasetName, String tableName) throws IOException
     {
-        logger.info(" BIGQUERY STORAGE API EXECUTION:");
-        logger.info("  Using BigQuery Storage API for direct table access");
-        logger.info("  Table: projects/{}/datasets/{}/tables/{}", projectName, datasetName, tableName);
-        
         try (BigQueryReadClient client = BigQueryReadClient.create()) {
             String parent = String.format("projects/%s", projectName);
 
@@ -275,17 +236,12 @@ public class BigQueryRecordHandler
                 fields.add(field.getName());
             }
             
-            logger.info("  Selected Fields: {}", fields);
-            
             // We specify the columns to be projected by adding them to the selected fields,
             // and set a simple filter to restrict which rows are transmitted.
             ReadSession.TableReadOptions.Builder optionsBuilder =
                     ReadSession.TableReadOptions.newBuilder()
                             .addAllSelectedFields(fields);
             ReadSession.TableReadOptions options = BigQueryStorageApiUtils.setConstraints(optionsBuilder, recordsRequest.getSchema(), recordsRequest.getConstraints()).build();
-
-            logger.info("  Applied Constraints via Storage API filters");
-            logger.debug("  Read Options: {}", options);
 
             // Start specifying the read session we want created.
             ReadSession.Builder sessionBuilder =
@@ -304,7 +260,6 @@ public class BigQueryRecordHandler
                             .setMaxStreamCount(1);
 
             ReadSession session = client.createReadSession(builder.build());
-            logger.info("   Created BigQuery Read Session with {} streams", session.getStreamsCount());
             
             // Setup a simple reader and start a read session.
             try (BigQueryRowReader reader = new BigQueryRowReader(session.getArrowSchema(), allocator)) {
@@ -322,32 +277,22 @@ public class BigQueryRecordHandler
 
                 // Use the first stream to perform reading.
                 String streamName = session.getStreams(0).getName();
-                logger.info("   Reading from stream: {}", streamName);
 
                 ReadRowsRequest readRowsRequest =
                         ReadRowsRequest.newBuilder().setReadStream(streamName).build();
 
                 // Process each block of rows as they arrive and decode using our simple row reader.
                 ServerStream<ReadRowsResponse> stream = client.readRowsCallable().call(readRowsRequest);
-                logger.info("   Processing Arrow record batches...");
-                
-                int batchCount = 0;
-                int totalRows = 0;
                 
                 for (ReadRowsResponse response : stream) {
                     Preconditions.checkState(response.hasArrowRecordBatch());
                     VectorSchemaRoot root = reader.processRows(response.getArrowRecordBatch());
                     long rowLimit = (recordsRequest.getConstraints().getLimit() > 0 && recordsRequest.getConstraints().getLimit() < root.getRowCount()) ? recordsRequest.getConstraints().getLimit() : root.getRowCount();
                     
-                    batchCount++;
-                    totalRows += rowLimit;
-                    
                     for (int rowIndex = 0; rowIndex < rowLimit; rowIndex++) {
                         outputResults(spiller, recordsRequest, root, rowIndex);
                     }
                 }
-                
-                logger.info("   Processed {} batches with {} total rows", batchCount, totalRows);
             }
         }
     }
@@ -393,9 +338,7 @@ public class BigQueryRecordHandler
      */
     private void outputResultsView(BlockSpiller spiller, ReadRecordsRequest recordsRequest, TableResult result)
     {
-        logger.info("Inside outputResults: ");
         String timeStampColsList = Objects.toString(recordsRequest.getSchema().getCustomMetadata().get("timeStampCols"), "");
-        logger.info("timeStampColsList: " + timeStampColsList);
         if (result != null) {
             for (FieldValueList row : result.iterateAll()) {
                 spiller.writeRows((Block block, int rowNum) -> {

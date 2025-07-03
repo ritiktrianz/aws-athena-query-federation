@@ -38,7 +38,6 @@ import org.stringtemplate.v4.ST;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -75,10 +74,6 @@ public class BigQueryStorageApiUtils
      */
     public static List<String> buildConjuncts(List<Field> columns, Constraints constraints)
     {
-        LOGGER.info("BigQueryStorageApiUtils.buildConjuncts() - ENTRY");
-        LOGGER.info("  Building Storage API filter expressions for {} columns", columns.size());
-        LOGGER.info("  Column names: {}", columns.stream().map(Field::getName).collect(java.util.stream.Collectors.toList()));
-        
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         
         // Process field-based constraints
@@ -87,80 +82,50 @@ public class BigQueryStorageApiUtils
             if (constraints.getSummary() != null && !constraints.getSummary().isEmpty()) {
                 ValueSet valueSet = constraints.getSummary().get(column.getName());
                 if (valueSet != null) {
-                    LOGGER.info("  Processing Storage API constraint for column: {}, valueSet: {}, type: {}", column.getName(), valueSet.getClass().getSimpleName(), type.getTypeID());
                     builder.add(toPredicate(column.getName(), valueSet, type));
-                }
-                else {
-                    LOGGER.info("  No Storage API constraints found for column: {}", column.getName());
                 }
             }
         }
         
         // Add complex expressions (federation expressions)
-        LOGGER.info("  Checking for federation expressions in Storage API...");
         List<String> complexExpressions = new BigQueryFederationExpressionParser().parseComplexExpressions(columns, constraints);
-        if (!complexExpressions.isEmpty()) {
-            LOGGER.info("  Adding {} complex expressions to Storage API conjuncts", complexExpressions.size());
-            LOGGER.info("  Complex expressions: {}", complexExpressions);
-        }
-        else {
-            LOGGER.info("  No complex expressions found for Storage API");
-        }
         builder.addAll(complexExpressions);
         
-        List<String> conjuncts = builder.build();
-        LOGGER.info("BigQueryStorageApiUtils.buildConjuncts() - EXIT");
-        LOGGER.info("  Generated {} Storage API conjuncts", conjuncts.size());
-        LOGGER.info("  Final Storage API conjuncts: {}", conjuncts);
-        return conjuncts;
+        return builder.build();
     }
 
     private static String toPredicate(String columnName, ValueSet valueSet, ArrowType type)
     {
-        LOGGER.info("BigQueryStorageApiUtils.toPredicate(): Building predicate for column: {}, valueSet: {}, type: {}", 
-                    columnName, valueSet.getClass().getSimpleName(), type.getTypeID());
-        
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
 
         if (valueSet instanceof SortedRangeSet) {
-            LOGGER.info("Processing SortedRangeSet for column: {}", columnName);
             Range rangeSpan = ((SortedRangeSet) valueSet).getSpan();
 
             if (valueSet.isNone() && valueSet.isNullAllowed()) {
-                LOGGER.info("ValueSet is NONE with NULL allowed for column: {}", columnName);
                 return createStorageApiNullPredicate(columnName, true);
             }
 
             if (valueSet.isNullAllowed()) {
-                LOGGER.info("NULL values allowed for column: {}, adding IS NULL predicate", columnName);
                 disjuncts.add(createStorageApiNullPredicate(columnName, true));
             }
 
             if (!valueSet.isNullAllowed() && rangeSpan.getLow().isLowerUnbounded() && rangeSpan.getHigh().isUpperUnbounded()) {
-                LOGGER.info("ValueSet is unbounded non-null for column: {}", columnName);
                 return createStorageApiNullPredicate(columnName, false);
             }
 
-            SortedRangeSet sortedRangeSet = (SortedRangeSet) valueSet;
-            LOGGER.info("Processing {} ranges for column: {}", sortedRangeSet.getRanges().getOrderedRanges().size(), columnName);
-            
             for (Range range : valueSet.getRanges().getOrderedRanges()) {
                 if (range.isSingleValue()) {
-                    LOGGER.info("Found single value range for column: {}, value: {}", columnName, range.getLow().getValue());
                     singleValues.add(range.getLow().getValue());
                 }
                 else {
-                    LOGGER.info("Processing multi-value range for column: {}", columnName);
                     List<String> rangeConjuncts = new ArrayList<>();
                     if (!range.getLow().isLowerUnbounded()) {
                         switch (range.getLow().getBound()) {
                             case ABOVE:
-                                LOGGER.info("Adding ABOVE bound for column: {}", columnName);
                                 rangeConjuncts.add(toPredicate(columnName, ">", range.getLow().getValue(), type));
                                 break;
                             case EXACTLY:
-                                LOGGER.info("Adding EXACTLY (>=) bound for column: {}", columnName);
                                 rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), type));
                                 break;
                             case BELOW:
@@ -174,11 +139,9 @@ public class BigQueryStorageApiUtils
                             case ABOVE:
                                 throw new IllegalArgumentException("High marker should never use ABOVE bound");
                             case EXACTLY:
-                                LOGGER.info("Adding EXACTLY (<=) upper bound for column: {}", columnName);
                                 rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), type));
                                 break;
                             case BELOW:
-                                LOGGER.info("Adding BELOW (<) upper bound for column: {}", columnName);
                                 rangeConjuncts.add(toPredicate(columnName, "<", range.getHigh().getValue(), type));
                                 break;
                             default:
@@ -191,11 +154,9 @@ public class BigQueryStorageApiUtils
             }
 
             if (singleValues.size() == 1) {
-                LOGGER.info("Creating equality predicate for single value in column: {}", columnName);
                 disjuncts.add(toPredicate(columnName, "=", Iterables.getOnlyElement(singleValues), type));
             }
             else if (singleValues.size() > 1) {
-                LOGGER.info("Creating IN predicate for {} values in column: {}", singleValues.size(), columnName);
                 List<String> val = new ArrayList<>();
                 for (Object value : singleValues) {
                     val.add(getValueForWhereClause(columnName, value, type).getValue().toString());
@@ -204,15 +165,11 @@ public class BigQueryStorageApiUtils
             }
         }
 
-        String result = createStorageApiOrPredicate(disjuncts);
-        LOGGER.info("Generated final predicate for column: {}, result: {}", columnName, result);
-        return result;
+        return createStorageApiOrPredicate(disjuncts);
     }
 
     private static String toPredicate(String columnName, String operator, Object value, ArrowType type)
     {
-        LOGGER.info("BigQueryStorageApiUtils.toPredicate(): Creating comparison predicate - column: {}, operator: {}, value: {}", 
-                    columnName, operator, value);
         return createComparisonPredicateWithValue(columnName, operator, value, type);
     }
 
@@ -221,20 +178,16 @@ public class BigQueryStorageApiUtils
      */
     private static String createComparisonPredicateWithValue(String columnName, String operator, Object value, ArrowType type)
     {
-        LOGGER.info("Creating comparison predicate with inline value for Storage API - column: {}, operator: {}", columnName, operator);
-        
         ST template = queryFactory.getQueryTemplate("storage_api_comparison_predicate");
         template.add("columnName", columnName);
         template.add("operator", operator);
         
         String templateResult = template.render().trim();
         String formattedValue = (type.getTypeID().equals(Utf8) || type.getTypeID().equals(ArrowType.ArrowTypeID.Date)) ? 
-                               quote(getValueForWhereClause(columnName, value, type).getValue()) : 
-                               getValueForWhereClause(columnName, value, type).getValue().toString();
+                               quote(getValueForWhereClause(columnName, value, type).getValue()) :
+                getValueForWhereClause(columnName, value, type).getValue();
         
-        String result = templateResult.replace("?", formattedValue);
-        LOGGER.info("Generated comparison predicate: {}", result);
-        return result;
+        return templateResult.replace("?", formattedValue);
     }
     
     /**
@@ -242,31 +195,21 @@ public class BigQueryStorageApiUtils
      */
     private static String createInPredicateWithValues(String columnName, String values)
     {
-        LOGGER.info("Creating IN predicate with inline values for Storage API - column: {}", columnName);
-        
         ST template = queryFactory.getQueryTemplate("storage_api_in_predicate");
         template.add("columnName", columnName);
-        template.add("placeholderList", Arrays.asList("?"));
+        template.add("placeholderList", List.of("?"));
         
         String templateResult = template.render().trim();
-        String result = templateResult.replace("?", values);
-        LOGGER.info("Generated IN predicate: {}", result);
-        return result;
+        return templateResult.replace("?", values);
     }
 
     public static ReadSession.TableReadOptions.Builder setConstraints(ReadSession.TableReadOptions.Builder optionsBuilder, Schema schema, Constraints constraints)
     {
-        LOGGER.info("BigQueryStorageApiUtils.setConstraints(): Setting constraints for schema with {} fields", schema.getFields().size());
-        
         List<String> clauses = buildConjuncts(schema.getFields(), constraints);
 
         if (!clauses.isEmpty()) {
             String clause = createWhereClause(clauses);
-            LOGGER.info("Setting row restriction: {}", clause);
             optionsBuilder = optionsBuilder.setRowRestriction(clause);
-        }
-        else {
-            LOGGER.info("No constraints to apply, skipping row restriction");
         }
         return optionsBuilder;
     }
@@ -276,50 +219,34 @@ public class BigQueryStorageApiUtils
      */
     private static String createWhereClause(List<String> clauses)
     {
-        LOGGER.info("BigQueryStorageApiUtils.createWhereClause(): Creating WHERE clause with {} conditions", clauses.size());
-        
         ST template = queryFactory.getQueryTemplate("where_clause");
         template.add("clauses", clauses);
         
-        String result = template.render().trim();
-        LOGGER.info("Generated WHERE clause: {}", result);
-        return result;
+        return template.render().trim();
     }
-    // ========== SHARED UTILITY METHODS ==========
 
     /**
      * Converts a value to the appropriate QueryParameterValue for BigQuery.
-     * Used by both BigQueryPredicateBuilder and BigQueryStorageApiUtils.
      */
     public static QueryParameterValue getValueForWhereClause(String columnName, Object value, ArrowType arrowType)
     {
-        LOGGER.info("BigQueryStorageApiUtils.getValueForWhereClause(): Processing column={}, value={}, arrowType={}",
-                columnName, value, arrowType.getTypeID());
-
         String val;
         StringBuilder tempVal;
         switch (arrowType.getTypeID()) {
             case Int:
-                LOGGER.info("Processing Integer type for column: {}", columnName);
                 return QueryParameterValue.int64(((Number) value).longValue());
             case Decimal:
-                LOGGER.info("Processing Decimal type for column: {}", columnName);
                 ArrowType.Decimal decimalType = (ArrowType.Decimal) arrowType;
                 return QueryParameterValue.numeric(BigDecimal.valueOf((long) value, decimalType.getScale()));
             case FloatingPoint:
-                LOGGER.info("Processing FloatingPoint type for column: {}", columnName);
                 return QueryParameterValue.float64((double) value);
             case Bool:
-                LOGGER.info("Processing Boolean type for column: {}", columnName);
                 return QueryParameterValue.bool((Boolean) value);
             case Utf8:
-                LOGGER.info("Processing String type for column: {}", columnName);
                 return QueryParameterValue.string(value.toString());
             case Date:
-                LOGGER.info("Processing Date type for column: {}", columnName);
                 val = value.toString();
                 if (val.contains("-")) {
-                    LOGGER.info("Processing timestamp format for column: {}", columnName);
                     tempVal = new StringBuilder(val);
                     tempVal = tempVal.length() == 19 ? tempVal.append(".0") : tempVal;
 
@@ -327,7 +254,6 @@ public class BigQueryStorageApiUtils
                     return QueryParameterValue.dateTime(val);
                 }
                 else {
-                    LOGGER.info("Processing date format for column: {}", columnName);
                     long days = Long.parseLong(val);
                     long milliseconds = TimeUnit.DAYS.toMillis(days);
                     return QueryParameterValue.date(new Date(milliseconds).toString());
@@ -340,31 +266,23 @@ public class BigQueryStorageApiUtils
             case Struct:
             case Union:
             case NONE:
-                LOGGER.info("Unsupported Arrow type encountered for column: {}, type: {}", columnName, arrowType.getTypeID().name());
                 throw new UnsupportedOperationException("The Arrow type: " + arrowType.getTypeID().name() + " is currently not supported");
             default:
-                LOGGER.info("Unknown Arrow type encountered for column: {}, type: {}", columnName, arrowType.getTypeID().name());
                 throw new IllegalArgumentException("Unknown type has been encountered during range processing: " + columnName +
                         " Field Type: " + arrowType.getTypeID().name());
         }
     }
-
-    // ========== STORAGE API SPECIFIC METHODS ==========
 
     /**
      * Creates a NULL predicate using Storage API StringTemplate (no backticks).
      */
     private static String createStorageApiNullPredicate(String columnName, boolean isNull)
     {
-        LOGGER.info("Creating Storage API null predicate for column: {}, isNull: {}", columnName, isNull);
-
         ST template = queryFactory.getQueryTemplate("storage_api_null_predicate");
         template.add("columnName", columnName);
         template.add("isNull", isNull);
 
-        String result = template.render().trim();
-        LOGGER.info("Generated Storage API null predicate: {}", result);
-        return result;
+        return template.render().trim();
     }
 
     /**
@@ -372,14 +290,10 @@ public class BigQueryStorageApiUtils
      */
     private static String createStorageApiRangePredicate(List<String> conjuncts)
     {
-        LOGGER.info("Creating Storage API range predicate with {} conjuncts", conjuncts.size());
-
         ST template = queryFactory.getQueryTemplate("storage_api_range_predicate");
         template.add("conjuncts", conjuncts);
 
-        String result = template.render().trim();
-        LOGGER.info("Generated Storage API range predicate: {}", result);
-        return result;
+        return template.render().trim();
     }
 
     /**
@@ -387,23 +301,17 @@ public class BigQueryStorageApiUtils
      */
     private static String createStorageApiOrPredicate(List<String> disjuncts)
     {
-        LOGGER.info("Creating Storage API OR predicate with {} disjuncts", disjuncts.size());
-
         if (disjuncts.isEmpty()) {
-            LOGGER.info("No disjuncts provided, returning empty string");
             return "";
         }
         if (disjuncts.size() == 1) {
-            LOGGER.info("Single disjunct provided, returning as-is: {}", disjuncts.get(0));
             return disjuncts.get(0);
         }
         
         ST template = queryFactory.getQueryTemplate("storage_api_or_predicate");
         template.add("disjuncts", disjuncts);
 
-        String result = template.render().trim();
-        LOGGER.info("Generated Storage API OR predicate: {}", result);
-        return result;
+        return template.render().trim();
     }
 
     /**
@@ -411,13 +319,9 @@ public class BigQueryStorageApiUtils
      */
     private static String createStorageApiCommaSeparatedList(List<String> items)
     {
-        LOGGER.info("Creating Storage API comma-separated list with {} items", items.size());
-
         ST template = queryFactory.getQueryTemplate("storage_api_comma_separated_list");
         template.add("items", items);
 
-        String result = template.render().trim();
-        LOGGER.info("Generated Storage API comma-separated list: {}", result);
-        return result;
+        return template.render().trim();
     }
 }

@@ -10,7 +10,14 @@ test_template() ::= <%
  *@return A SQL query that can be executed by BigQuery.
  */
 select_query(builder) ::= <%
-    SELECT <if(builder.projection)><first(builder.projection): {col | `<col>`}><rest(builder.projection): {col | ,`<col>`}><else>null<endif> from `<builder.schemaName>`.`<builder.tableName>`<if(builder.conjuncts)> WHERE <first(builder.conjuncts): {conjunct | (<conjunct>)}><rest(builder.conjuncts): {conjunct |  AND (<conjunct>)}><endif><if(builder.orderByClause)> <builder.orderByClause><endif><if(builder.limitClause)> <builder.limitClause><endif>
+    SELECT 
+        <if(builder.projection)><first(builder.projection): {col | `<col>`}><rest(builder.projection): {col | ,
+        `<col>`}><else>null<endif> 
+    FROM `<builder.schemaName>`.`<builder.tableName>`<if(builder.conjuncts)>
+    WHERE <first(builder.conjuncts): {conjunct | (<conjunct>)}><rest(builder.conjuncts): {conjunct | 
+        AND (<conjunct>)}><endif><if(builder.orderByClause)>
+    <builder.orderByClause><endif><if(builder.limitClause)>
+    <builder.limitClause><endif>
 %>
 
 /**

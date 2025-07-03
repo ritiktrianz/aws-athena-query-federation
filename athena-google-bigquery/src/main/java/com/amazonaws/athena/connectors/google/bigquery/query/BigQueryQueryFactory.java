@@ -45,11 +45,6 @@ public class BigQueryQueryFactory
     private static final String TEST_TEMPLATE = "test_template";
     private volatile boolean useLocalFallback = false;
 
-    /**
-     * Due to a concurrency bug in StringTemplate, we are extracting creation of the template file.
-     *
-     * @return An STGroupFile instance for the given templateFile.
-     */
     private STGroupFile createGroupFile()
     {
         if (!useLocalFallback) {
@@ -94,19 +89,13 @@ public class BigQueryQueryFactory
         }
 
         useLocalFallback = true;
-        logger.info("createLocalGroupFile: {}", sb.toString());
+        logger.info("createLocalGroupFile: {}", sb);
 
         STGroupFile stGroupFile = new STGroupFile(LOCAL_TEMPLATE_FILE);
         notNull(stGroupFile.getInstanceOf(TEST_TEMPLATE));
         return stGroupFile;
     }
 
-    /**
-     * Used to get an instance of a templated BigQuery query.
-     *
-     * @param templateName The name of the query template.
-     * @return The StringTemplate containing the query template that can be used to render and instance of the query template.
-     */
     public ST getQueryTemplate(String templateName)
     {
         return createGroupFile().getInstanceOf(templateName);
