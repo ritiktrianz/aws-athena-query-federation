@@ -24,7 +24,6 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connectors.google.bigquery.query.BigQueryQueryBuilder;
 import com.amazonaws.athena.connectors.google.bigquery.query.BigQueryQueryFactory;
 import com.google.cloud.bigquery.QueryParameterValue;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,14 +54,7 @@ public class BigQuerySqlUtils
      */
     public static String buildSql(TableName tableName, Schema schema, Constraints constraints, List<QueryParameterValue> parameterValues)
     {
-        LOGGER.info("STRINGTEMPLATE SQL BUILDER:");
-        LOGGER.info("  Table: {}.{}", tableName.getSchemaName(), tableName.getTableName());
-        LOGGER.info("  Schema Fields: {}", schema.getFields().stream().map(Field::getName).collect(java.util.stream.Collectors.toList()));
-        LOGGER.info("  Constraints: {}", constraints);
-        LOGGER.info("Inside buildSql(): ");
-        
         BigQueryQueryBuilder queryBuilder = queryFactory.createQueryBuilder();
-        LOGGER.info("  Created BigQueryQueryBuilder instance");
         
         String sql = queryBuilder
                 .withTableName(tableName)
@@ -75,12 +67,7 @@ public class BigQuerySqlUtils
         // Copy the parameter values from the builder to the provided list
         parameterValues.clear();
         parameterValues.addAll(queryBuilder.getParameterValues());
-        
-        LOGGER.info("   FINAL StringTemplate Results:");
-        LOGGER.info("  Generated SQL: {}", sql);
-        LOGGER.info("  Parameter Count: {}", parameterValues.size());
-        LOGGER.info("  Parameter Values: {}", parameterValues);
-        
+
         return sql;
     }
 }
