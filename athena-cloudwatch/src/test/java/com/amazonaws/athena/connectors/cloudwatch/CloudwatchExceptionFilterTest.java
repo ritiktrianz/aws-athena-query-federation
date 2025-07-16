@@ -61,4 +61,4 @@ public class CloudwatchExceptionFilterTest
         assertFalse("Should not match null exception", match);
     }
 
-} 
+}
