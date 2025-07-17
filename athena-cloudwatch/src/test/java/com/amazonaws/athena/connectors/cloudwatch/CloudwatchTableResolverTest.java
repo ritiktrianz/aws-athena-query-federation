@@ -54,8 +54,8 @@ public class CloudwatchTableResolverTest {
     private static final String ACTUAL_LOG_GROUP = "test-group";
     private static final String ACTUAL_LOG_STREAM = "test-stream";
     private static final String NO_SUCH_SCHEMA_MESSAGE = "No such schema";
-    private static final String GROUP_PREFIX = "group-";
-    private static final String STREAM_PREFIX = "stream-";
+    private static final String GROUP_15 = "group-15";
+    private static final String STREAM_15 = "stream-15";
     private static final String TOKEN_1 = "token1";
     private static final int PAGINATION_SIZE = 10;
     private static final int TOTAL_ITEMS = 20;
@@ -75,24 +75,16 @@ public class CloudwatchTableResolverTest {
             Mockito.lenient().when(mockInvoker.invoke(Mockito.any()))
                     .thenAnswer(invocation -> {
                         Callable<Object> callable = invocation.getArgument(0);
-                        try {
                             return callable.call();
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
                     });
             Mockito.lenient().when(mockInvoker.invoke(Mockito.any(), Mockito.anyLong()))
                     .thenAnswer(invocation -> {
                         Callable<Object> callable = invocation.getArgument(0);
-                        try {
                             return callable.call();
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
                     });
             resolver = new CloudwatchTableResolver(mockInvoker, mockAwsLogs, THROTTLE_LIMIT, THROTTLE_LIMIT);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            fail("Unexpected exception in test: " + e.getMessage());
         }
     }
 
@@ -112,7 +104,7 @@ public class CloudwatchTableResolverTest {
             CloudwatchTableName result = resolver.validateTable(new TableName(TEST_LOG_GROUP, "test-function$latest"));
             assertEquals(EXPECTED_FUNCTION_LATEST, result.getLogStreamName());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            fail("Unexpected exception in test: " + e.getMessage());
         }
     }
 
@@ -133,17 +125,16 @@ public class CloudwatchTableResolverTest {
             assertEquals(ACTUAL_LOG_GROUP, result.getLogGroupName());
             assertEquals(ACTUAL_LOG_STREAM, result.getLogStreamName());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            fail("Unexpected exception in test: " + e.getMessage());
         }
     }
 
     @Test
     public void testSchemaNotFound() {
-        doReturn(DescribeLogGroupsResponse.builder().build())
-                .when(mockAwsLogs).describeLogGroups(any(DescribeLogGroupsRequest.class));
         try {
+            doReturn(DescribeLogGroupsResponse.builder().build())
+                .when(mockAwsLogs).describeLogGroups(any(DescribeLogGroupsRequest.class));
             resolver.validateSchema("non-existent-schema");
-            fail("Expected exception");
         } catch (UncheckedExecutionException e) {
             assertThat(e.getCause()).isInstanceOf(IllegalArgumentException.class);
             assertThat(e.getCause().getMessage()).contains(NO_SUCH_SCHEMA_MESSAGE);
@@ -152,6 +143,7 @@ public class CloudwatchTableResolverTest {
 
     @Test
     public void testTableNotFound() {
+        try {
         doReturn(DescribeLogGroupsResponse.builder()
                 .logGroups(LogGroup.builder().logGroupName(TEST_LOG_GROUP).build())
                 .build())
@@ -160,9 +152,8 @@ public class CloudwatchTableResolverTest {
         doReturn(DescribeLogStreamsResponse.builder().build())
                 .when(mockAwsLogs).describeLogStreams(any(DescribeLogStreamsRequest.class));
 
-        try {
+
             resolver.validateTable(new TableName(TEST_LOG_GROUP, "non-existent-stream"));
-            fail("Expected exception");
         } catch (UncheckedExecutionException e) {
             assertThat(e.getCause()).isInstanceOf(IllegalArgumentException.class);
             assertThat(e.getCause().getMessage()).contains("No such table");
@@ -176,8 +167,8 @@ public class CloudwatchTableResolverTest {
             List<LogStream> logStreams = new ArrayList<>();
 
             for (int i = 0; i < TOTAL_ITEMS; i++) {
-                logGroups.add(LogGroup.builder().logGroupName(GROUP_PREFIX + i).build());
-                logStreams.add(LogStream.builder().logStreamName(STREAM_PREFIX + i).build());
+                logGroups.add(LogGroup.builder().logGroupName("group-" + i).build());
+                logStreams.add(LogStream.builder().logStreamName("stream-"+ i).build());
             }
 
             doReturn(DescribeLogGroupsResponse.builder()
@@ -200,19 +191,18 @@ public class CloudwatchTableResolverTest {
 
             try {
                 resolver.validateSchema(TEST_LOG_GROUP);
-                fail("Expected exception");
             } catch (UncheckedExecutionException e) {
                 assertThat(e.getCause()).isInstanceOf(IllegalArgumentException.class);
                 assertThat(e.getCause().getMessage()).contains(NO_SUCH_SCHEMA_MESSAGE);
             }
 
-            String result = resolver.validateSchema(GROUP_PREFIX + "15");
-            assertEquals(GROUP_PREFIX + "15", result);
+            String result = resolver.validateSchema(GROUP_15);
+            assertEquals(GROUP_15, result);
 
-            CloudwatchTableName tableResult = resolver.validateTable(new TableName(TEST_LOG_GROUP, STREAM_PREFIX + "15"));
-            assertEquals(STREAM_PREFIX + "15", tableResult.getLogStreamName());
+            CloudwatchTableName tableResult = resolver.validateTable(new TableName(TEST_LOG_GROUP, STREAM_15));
+            assertEquals(STREAM_15, tableResult.getLogStreamName());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            fail("Unexpected exception in test: " + e.getMessage());
         }
     }
 }

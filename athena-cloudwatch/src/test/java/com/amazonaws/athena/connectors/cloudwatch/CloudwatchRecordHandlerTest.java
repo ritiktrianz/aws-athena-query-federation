@@ -312,7 +312,7 @@ public class CloudwatchRecordHandlerTest
 
             handlerSpy.readWithConstraint(mockSpiller, mockRequest, mockChecker);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            fail("Unexpected exception in test: " + e.getMessage());
         }
     }
 

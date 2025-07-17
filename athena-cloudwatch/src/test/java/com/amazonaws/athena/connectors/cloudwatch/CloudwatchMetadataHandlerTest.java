@@ -87,6 +87,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @RunWith(MockitoJUnitRunner.class)
 public class CloudwatchMetadataHandlerTest
@@ -503,6 +504,7 @@ public class CloudwatchMetadataHandlerTest
             }
 
             assertNotNull(exception);
+            assertThat(exception.getMessage()).contains("No Query passed through [{}]");
             logger.info("doGetQueryPassthroughSchema - exit");
         } catch (Exception e) {
             fail("Unexpected exception in test: " + e.getMessage());
