@@ -107,6 +107,8 @@ public class PostGreSqlMetadataHandlerTest
     private static final int FILTER_PUSHDOWN_SIZE = 2;
     private static final int COMPLEX_EXPRESSION_SIZE = 1;
     private static final int HINTS_SIZE = 1;
+    private static final String TABLES_SQL = "SELECT table_name as \"TABLE_NAME\", table_schema as \"TABLE_SCHEM\" FROM information_schema.tables WHERE table_schema = ?";
+    private static final String MATERIALIZED_VIEWS_SQL = "select matviewname as \"TABLE_NAME\", schemaname as \"TABLE_SCHEM\" from pg_catalog.pg_matviews mv where has_table_privilege(format('%I.%I', mv.schemaname, mv.matviewname), 'select') and schemaname = ?";
 
     private DatabaseConnectionConfig databaseConnectionConfig = new DatabaseConnectionConfig("testCatalog", "postgres",
             "postgres://jdbc:postgresql://hostname/user=A&password=B");
@@ -226,6 +228,9 @@ public class PostGreSqlMetadataHandlerTest
 
         GetTableLayoutResponse getTableLayoutResponse = this.postGreSqlMetadataHandler.doGetTableLayout(blockAllocator, getTableLayoutRequest);
 
+        Mockito.verify(preparedStatement, Mockito.times(1)).setString(1, tableName.getSchemaName());
+        Mockito.verify(preparedStatement, Mockito.times(1)).setString(2, tableName.getTableName());
+
         Assert.assertEquals(values.length, getTableLayoutResponse.getPartitions().getRowCount());
 
         List<String> expectedValues = new ArrayList<>();
@@ -240,76 +245,73 @@ public class PostGreSqlMetadataHandlerTest
         Schema expectedSchema = expectedSchemaBuilder.build();
         Assert.assertEquals(expectedSchema, getTableLayoutResponse.getPartitions().getSchema());
         Assert.assertEquals(tableName, getTableLayoutResponse.getTableName());
-
-        Mockito.verify(preparedStatement, Mockito.times(1)).setString(1, tableName.getSchemaName());
-        Mockito.verify(preparedStatement, Mockito.times(1)).setString(2, tableName.getTableName());
     }
 
     @Test
-    public void testListTablesWithValidConnection() {
-        try {
-            String databaseName = "testSchema";
-            Connection jdbcConnection = Mockito.mock(Connection.class);
-            PreparedStatement tablesStatement = Mockito.mock(PreparedStatement.class);
-            PreparedStatement matViewStatement = Mockito.mock(PreparedStatement.class);
-            ResultSet tablesResultSet = Mockito.mock(ResultSet.class);
-            ResultSet matViewResultSet = Mockito.mock(ResultSet.class);
+    public void testListTablesWithValidConnection() throws SQLException {
+        String databaseName = "testSchema";
+        Connection jdbcConnection = Mockito.mock(Connection.class);
+        PreparedStatement tablesStatement = Mockito.mock(PreparedStatement.class);
+        PreparedStatement matViewStatement = Mockito.mock(PreparedStatement.class);
+        ResultSet tablesResultSet = Mockito.mock(ResultSet.class);
+        ResultSet matViewResultSet = Mockito.mock(ResultSet.class);
 
-            when(jdbcConnection.prepareStatement(anyString())).thenReturn(tablesStatement, matViewStatement);
-            when(tablesStatement.executeQuery()).thenReturn(tablesResultSet);
-            when(matViewStatement.executeQuery()).thenReturn(matViewResultSet);
-            when(tablesResultSet.next()).thenReturn(true, false);
-            when(matViewResultSet.next()).thenReturn(true, false);
-            when(tablesResultSet.getString("TABLE_NAME")).thenReturn("table1");
-            when(tablesResultSet.getString("TABLE_SCHEM")).thenReturn(databaseName);
-            when(matViewResultSet.getString("TABLE_NAME")).thenReturn("matview1");
-            when(matViewResultSet.getString("TABLE_SCHEM")).thenReturn(databaseName);
+        // Mock for regular tables
+        when(jdbcConnection.prepareStatement(TABLES_SQL)).thenReturn(tablesStatement);
+        when(tablesStatement.executeQuery()).thenReturn(tablesResultSet);
+        when(tablesResultSet.next()).thenReturn(true, false);
+        when(tablesResultSet.getString("TABLE_NAME")).thenReturn("table1");
+        when(tablesResultSet.getString("TABLE_SCHEM")).thenReturn(databaseName);
 
-            List<TableName> result = postGreSqlMetadataHandler.listTables(jdbcConnection, databaseName);
+        // Mock for materialized views
+        when(jdbcConnection.prepareStatement(MATERIALIZED_VIEWS_SQL)).thenReturn(matViewStatement);
+        when(matViewStatement.executeQuery()).thenReturn(matViewResultSet);
+        when(matViewResultSet.next()).thenReturn(true, false);
+        when(matViewResultSet.getString("TABLE_NAME")).thenReturn("matview1");
+        when(matViewResultSet.getString("TABLE_SCHEM")).thenReturn(databaseName);
 
-            List<TableName> expected = ImmutableList.of(
-                    new TableName(databaseName, "table1"),
-                    new TableName(databaseName, "matview1")
-            );
+        List<TableName> result = postGreSqlMetadataHandler.listTables(jdbcConnection, databaseName);
 
-            assertEquals("Expected tables and materialized views", expected, result);
-            Mockito.verify(tablesStatement).executeQuery();
-            Mockito.verify(matViewStatement).setString(1, databaseName);
-            Mockito.verify(matViewStatement).executeQuery();
-        } catch (Exception e) {
-            fail("Unexpected exception occurred: " + e.getMessage());
-        }
+        List<TableName> expected = ImmutableList.of(
+                new TableName(databaseName, "table1"),
+                new TableName(databaseName, "matview1")
+        );
+
+        Mockito.verify(tablesStatement).executeQuery();
+        Mockito.verify(matViewStatement).setString(1, databaseName);
+        Mockito.verify(matViewStatement).executeQuery();
+        assertEquals("Expected tables and materialized views", expected, result);
     }
 
 
     @Test
-    public void testListTablesWithNoMaterializedViews() {
-        try {
-            String databaseName = "testSchema";
-            Connection jdbcConnection = Mockito.mock(Connection.class);
-            PreparedStatement tablesStatement = Mockito.mock(PreparedStatement.class);
-            PreparedStatement matViewStatement = Mockito.mock(PreparedStatement.class);
-            ResultSet tablesResultSet = Mockito.mock(ResultSet.class);
-            ResultSet matViewResultSet = Mockito.mock(ResultSet.class);
+    public void testListTablesWithNoMaterializedViews() throws SQLException {
+        String databaseName = "testSchema";
+        Connection jdbcConnection = Mockito.mock(Connection.class);
+        PreparedStatement tablesStatement = Mockito.mock(PreparedStatement.class);
+        PreparedStatement matViewStatement = Mockito.mock(PreparedStatement.class);
+        ResultSet tablesResultSet = Mockito.mock(ResultSet.class);
+        ResultSet matViewResultSet = Mockito.mock(ResultSet.class);
 
-            when(jdbcConnection.prepareStatement(anyString())).thenReturn(tablesStatement, matViewStatement);
-            when(tablesStatement.executeQuery()).thenReturn(tablesResultSet);
-            when(matViewStatement.executeQuery()).thenReturn(matViewResultSet);
-            when(tablesResultSet.next()).thenReturn(true, false);
-            when(matViewResultSet.next()).thenReturn(false);
-            when(tablesResultSet.getString("TABLE_NAME")).thenReturn("table1");
-            when(tablesResultSet.getString("TABLE_SCHEM")).thenReturn(databaseName);
+        // Mock for regular tables
+        when(jdbcConnection.prepareStatement(TABLES_SQL)).thenReturn(tablesStatement);
+        when(tablesStatement.executeQuery()).thenReturn(tablesResultSet);
+        when(tablesResultSet.next()).thenReturn(true, false);
+        when(tablesResultSet.getString("TABLE_NAME")).thenReturn("table1");
+        when(tablesResultSet.getString("TABLE_SCHEM")).thenReturn(databaseName);
 
-            List<TableName> result = postGreSqlMetadataHandler.listTables(jdbcConnection, databaseName);
+        // Mock for materialized views (no results)
+        when(jdbcConnection.prepareStatement(MATERIALIZED_VIEWS_SQL)).thenReturn(matViewStatement);
+        when(matViewStatement.executeQuery()).thenReturn(matViewResultSet);
+        when(matViewResultSet.next()).thenReturn(false);
 
-            List<TableName> expected = ImmutableList.of(new TableName(databaseName, "table1"));
-            assertEquals("Expected only tables", expected, result);
-            Mockito.verify(tablesStatement).executeQuery();
-            Mockito.verify(matViewStatement).setString(1, databaseName);
-            Mockito.verify(matViewStatement).executeQuery();
-        } catch (Exception e) {
-            fail("Unexpected exception occurred: " + e.getMessage());
-        }
+        List<TableName> result = postGreSqlMetadataHandler.listTables(jdbcConnection, databaseName);
+
+        List<TableName> expected = ImmutableList.of(new TableName(databaseName, "table1"));
+        Mockito.verify(tablesStatement).executeQuery();
+        Mockito.verify(matViewStatement).setString(1, databaseName);
+        Mockito.verify(matViewStatement).executeQuery();
+        assertEquals("Expected only tables", expected, result);
     }
 
     @Test
@@ -352,6 +354,9 @@ public class PostGreSqlMetadataHandlerTest
 
         GetTableLayoutResponse getTableLayoutResponse = this.postGreSqlMetadataHandler.doGetTableLayout(blockAllocator, getTableLayoutRequest);
 
+        Mockito.verify(preparedStatement, Mockito.times(1)).setString(1, tableName.getSchemaName());
+        Mockito.verify(preparedStatement, Mockito.times(1)).setString(2, tableName.getTableName());
+
         Assert.assertEquals(1, getTableLayoutResponse.getPartitions().getRowCount());
 
         List<String> expectedValues = new ArrayList<>();
@@ -366,9 +371,6 @@ public class PostGreSqlMetadataHandlerTest
         Schema expectedSchema = expectedSchemaBuilder.build();
         Assert.assertEquals(expectedSchema, getTableLayoutResponse.getPartitions().getSchema());
         Assert.assertEquals(tableName, getTableLayoutResponse.getTableName());
-
-        Mockito.verify(preparedStatement, Mockito.times(1)).setString(1, tableName.getSchemaName());
-        Mockito.verify(preparedStatement, Mockito.times(1)).setString(2, tableName.getTableName());
     }
 
     @Test(expected = RuntimeException.class)
@@ -690,27 +692,23 @@ public class PostGreSqlMetadataHandlerTest
     }
 
     @Test
-    public void testGetCharColumnsWithCharacterColumns() {
-        try {
-            String schema = "testSchema";
-            String table = "testTable";
-            String query = "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND data_type = 'character'";
-            PreparedStatement preparedStatement = Mockito.mock(PreparedStatement.class);
-            ResultSet resultSet = Mockito.mock(ResultSet.class);
+    public void testGetCharColumnsWithCharacterColumns() throws SQLException {
+        String schema = "testSchema";
+        String table = "testTable";
+        String query = "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND data_type = 'character'";
+        PreparedStatement preparedStatement = Mockito.mock(PreparedStatement.class);
+        ResultSet resultSet = Mockito.mock(ResultSet.class);
 
-            when(connection.prepareStatement(query)).thenReturn(preparedStatement);
-            when(preparedStatement.executeQuery()).thenReturn(resultSet);
-            when(resultSet.next()).thenReturn(true, true, false);
-            when(resultSet.getString("column_name")).thenReturn("col1", "col2");
+        when(connection.prepareStatement(query)).thenReturn(preparedStatement);
+        when(preparedStatement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true, true, false);
+        when(resultSet.getString("column_name")).thenReturn("col1", "col2");
 
-            List<String> charColumns = PostGreSqlMetadataHandler.getCharColumns(connection, schema, table);
+        List<String> charColumns = PostGreSqlMetadataHandler.getCharColumns(connection, schema, table);
 
-            assertEquals("Expected two character columns", Arrays.asList("col1", "col2"), charColumns);
-            Mockito.verify(preparedStatement).setString(1, schema);
-            Mockito.verify(preparedStatement).setString(2, table);
-        } catch (Exception e) {
-            fail("Unexpected exception occurred: " + e.getMessage());
-        }
+        Mockito.verify(preparedStatement).setString(1, schema);
+        Mockito.verify(preparedStatement).setString(2, table);
+        assertEquals("Expected two character columns", Arrays.asList("col1", "col2"), charColumns);
     }
 
     @Test
