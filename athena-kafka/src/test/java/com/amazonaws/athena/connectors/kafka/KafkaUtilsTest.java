@@ -399,3 +399,4 @@ public class KafkaUtilsTest {
         assertEquals("trustpass", properties.get("ssl.truststore.password"));
     }
 }
+
