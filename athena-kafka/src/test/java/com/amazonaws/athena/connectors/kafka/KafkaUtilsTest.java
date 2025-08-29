@@ -63,6 +63,33 @@ import static org.mockito.ArgumentMatchers.any;
 
 @RunWith(MockitoJUnitRunner.class)
 public class KafkaUtilsTest {
+    // Constants for test configuration
+    private static final String TEST_USERNAME = "admin";
+    private static final String TEST_PASSWORD = "test";
+    private static final String TEST_KEYSTORE_PASSWORD = "keypass";
+    private static final String TEST_TRUSTSTORE_PASSWORD = "trustpass";
+    private static final String TEST_SSL_KEY_PASSWORD = "sslpass";
+    
+    private static final String DIFFERENT_USERNAME = "testuser";
+    private static final String DIFFERENT_PASSWORD = "testpass";
+    
+    // Constants for Kafka properties
+    private static final String SECURITY_PROTOCOL = "security.protocol";
+    private static final String SASL_MECHANISM = "sasl.mechanism";
+    private static final String SASL_JAAS_CONFIG = "sasl.jaas.config";
+    private static final String SSL_TRUSTSTORE_LOCATION = "ssl.truststore.location";
+    private static final String SSL_TRUSTSTORE_PASSWORD = "ssl.truststore.password";
+    
+    // Constants for authentication types
+    private static final String SASL_PLAINTEXT = "SASL_PLAINTEXT";
+    private static final String SASL_SSL = "SASL_SSL";
+    private static final String SCRAM_SHA_512 = "SCRAM-SHA-512";
+    private static final String PLAIN = "PLAIN";
+    
+    // JAAS config templates
+    private static final String SCRAM_JAAS_TEMPLATE = "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"%s\" password=\"%s\";";
+    private static final String PLAIN_JAAS_TEMPLATE = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"%s\" password=\"%s\";";
+    
     @Mock
     FileWriter fileWriter;
 
@@ -94,9 +121,9 @@ public class KafkaUtilsTest {
     final java.util.Map<String, String> configOptions = com.google.common.collect.ImmutableMap.of(
         "glue_registry_arn", "arn:aws:glue:us-west-2:123456789101:registry/Athena-Kafka",
         "secret_manager_kafka_creds_name", "testSecret",
-        "kafka_endpoint", "12.207.18.179:9092",
-        "certificates_s3_reference", "s3://kafka-connector-test-bucket/kafkafiles/",
-        "secrets_manager_secret", "Kafka_afq");
+        KafkaConstants.ENV_KAFKA_ENDPOINT, "12.207.18.179:9092",
+        KafkaConstants.CERTIFICATES_S3_REFERENCE, "s3://kafka-connector-test-bucket/kafkafiles/",
+        KafkaConstants.SECRET_MANAGER_KAFKA_CREDS_NAME, "Kafka_afq");
 
     private MockedConstruction<DefaultCredentialsProvider> mockedDefaultCredentials;
     private MockedStatic<S3Client> mockedS3ClientBuilder;
@@ -230,173 +257,135 @@ public class KafkaUtilsTest {
     @Test
     public void testSetScramPlainTextAuthKafkaProperties() throws Exception {
         // Test SASL_PLAINTEXT_SCRAM_SHA512 authentication
-        java.util.HashMap testConfigOptions = new java.util.HashMap(configOptions);
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_PLAINTEXT_SCRAM_SHA512.toString());
-        
+        Map<String, String> testConfigOptions = createTestConfigOptions(KafkaUtils.AuthType.SASL_PLAINTEXT_SCRAM_SHA512.toString());
         Properties properties = getKafkaProperties(testConfigOptions);
         
-        // Verify security protocol
-        assertEquals("SASL_PLAINTEXT", properties.get("security.protocol"));
-        
-        // Verify SASL mechanism
-        assertEquals("SCRAM-SHA-512", properties.get("sasl.mechanism"));
-        
-        // Verify JAAS config contains correct username and password
-        String expectedJaasConfig = "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"admin\" password=\"test\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
-        
-        // Verify no SSL-related properties are set for PLAINTEXT
-        assertNull(properties.get("ssl.truststore.location"));
-        assertNull(properties.get("ssl.truststore.password"));
+        // Verify properties
+        verifyCommonSaslProperties(properties, SASL_PLAINTEXT, SCRAM_SHA_512, formatJaasConfig(true, TEST_USERNAME, TEST_PASSWORD));
+        verifyNoSslProperties(properties);
     }
 
     @Test
     public void testSetSaslPlainAuthKafkaProperties() throws Exception {
         // Test SASL_PLAINTEXT_PLAIN authentication
-        java.util.HashMap testConfigOptions = new java.util.HashMap(configOptions);
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_PLAINTEXT_PLAIN.toString());
-        
+        Map<String, String> testConfigOptions = createTestConfigOptions(KafkaUtils.AuthType.SASL_PLAINTEXT_PLAIN.toString());
         Properties properties = getKafkaProperties(testConfigOptions);
         
-        // Verify security protocol
-        assertEquals("SASL_PLAINTEXT", properties.get("security.protocol"));
-        
-        // Verify SASL mechanism
-        assertEquals("PLAIN", properties.get("sasl.mechanism"));
-        
-        // Verify JAAS config contains correct username and password
-        String expectedJaasConfig = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"test\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
-        
-        // Verify no SSL-related properties are set for PLAINTEXT
-        assertNull(properties.get("ssl.truststore.location"));
-        assertNull(properties.get("ssl.truststore.password"));
+        // Verify properties
+        verifyCommonSaslProperties(properties, SASL_PLAINTEXT, PLAIN, formatJaasConfig(false, TEST_USERNAME, TEST_PASSWORD));
+        verifyNoSslProperties(properties);
     }
 
     @Test
     public void testSetSaslSslAuthKafkaProperties() throws Exception {
         // Test SASL_SSL_PLAIN authentication
-        java.util.HashMap testConfigOptions = new java.util.HashMap(configOptions);
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
-        
+        Map<String, String> testConfigOptions = createTestConfigOptions(KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
         Properties properties = getKafkaProperties(testConfigOptions);
         
-        // Verify security protocol
-        assertEquals("SASL_SSL", properties.get("security.protocol"));
-        
-        // Verify SASL mechanism
-        assertEquals("PLAIN", properties.get("sasl.mechanism"));
-        
-        // Verify JAAS config contains correct username and password
-        String expectedJaasConfig = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"test\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
+        // Verify properties
+        verifyCommonSaslProperties(properties, SASL_SSL, PLAIN, formatJaasConfig(false, TEST_USERNAME, TEST_PASSWORD));
         
         // Verify SSL truststore properties are set when certificates_s3_reference is provided
-        assertNotNull(properties.get("ssl.truststore.location"));
-        assertNotNull(properties.get("ssl.truststore.password"));
-        assertEquals("trustpass", properties.get("ssl.truststore.password"));
+        assertNotNull(properties.get(SSL_TRUSTSTORE_LOCATION));
+        assertNotNull(properties.get(SSL_TRUSTSTORE_PASSWORD));
+        assertEquals(TEST_TRUSTSTORE_PASSWORD, properties.get(SSL_TRUSTSTORE_PASSWORD));
     }
 
     @Test
     public void testSetSaslSslAuthKafkaPropertiesWithoutCertificates() throws Exception {
         // Test SASL_SSL_PLAIN authentication without certificates_s3_reference
-        java.util.HashMap testConfigOptions = new java.util.HashMap(configOptions);
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
-        testConfigOptions.remove("certificates_s3_reference"); // Remove S3 reference
+        Map<String, String> testConfigOptions = createTestConfigOptions(KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
+        testConfigOptions.remove(KafkaConstants.CERTIFICATES_S3_REFERENCE); // Remove S3 reference
         
         Properties properties = getKafkaProperties(testConfigOptions);
         
-        // Verify security protocol
-        assertEquals("SASL_SSL", properties.get("security.protocol"));
-        
-        // Verify SASL mechanism
-        assertEquals("PLAIN", properties.get("sasl.mechanism"));
-        
-        // Verify JAAS config contains correct username and password
-        String expectedJaasConfig = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"test\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
-        
-        // Verify SSL truststore properties are NOT set when no certificates_s3_reference
-        assertNull(properties.get("ssl.truststore.location"));
-        assertNull(properties.get("ssl.truststore.password"));
+        // Verify properties
+        verifyCommonSaslProperties(properties, SASL_SSL, PLAIN, formatJaasConfig(false, TEST_USERNAME, TEST_PASSWORD));
+        verifyNoSslProperties(properties);
     }
 
     @Test
     public void testSetSaslSslAuthKafkaPropertiesWithEmptyCertificates() throws Exception {
         // Test SASL_SSL_PLAIN authentication with empty certificates_s3_reference
-        java.util.HashMap testConfigOptions = new java.util.HashMap(configOptions);
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
-        testConfigOptions.put("certificates_s3_reference", ""); // Empty S3 reference
+        Map<String, String> testConfigOptions = createTestConfigOptions(KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
+        testConfigOptions.put(KafkaConstants.CERTIFICATES_S3_REFERENCE, ""); // Empty S3 reference
         
         Properties properties = getKafkaProperties(testConfigOptions);
         
-        // Verify security protocol
-        assertEquals("SASL_SSL", properties.get("security.protocol"));
-        
-        // Verify SASL mechanism
-        assertEquals("PLAIN", properties.get("sasl.mechanism"));
-        
-        // Verify JAAS config contains correct username and password
-        String expectedJaasConfig = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"test\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
-        
-        // Verify SSL truststore properties are NOT set when certificates_s3_reference is empty
-        assertNull(properties.get("ssl.truststore.location"));
-        assertNull(properties.get("ssl.truststore.password"));
+        // Verify properties
+        verifyCommonSaslProperties(properties, SASL_SSL, PLAIN, formatJaasConfig(false, TEST_USERNAME, TEST_PASSWORD));
+        verifyNoSslProperties(properties);
     }
 
     @Test
     public void testSetSaslSslAuthKafkaPropertiesWithNullCertificates() throws Exception {
         // Test SASL_SSL_PLAIN authentication with null certificates_s3_reference
-        java.util.HashMap testConfigOptions = new java.util.HashMap(configOptions);
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
-        testConfigOptions.put("certificates_s3_reference", null); // Null S3 reference
+        Map<String, String> testConfigOptions = createTestConfigOptions(KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
+        testConfigOptions.put(KafkaConstants.CERTIFICATES_S3_REFERENCE, null); // Null S3 reference
         
         Properties properties = getKafkaProperties(testConfigOptions);
         
-        // Verify security protocol
-        assertEquals("SASL_SSL", properties.get("security.protocol"));
-        
-        // Verify SASL mechanism
-        assertEquals("PLAIN", properties.get("sasl.mechanism"));
-        
-        // Verify JAAS config contains correct username and password
-        String expectedJaasConfig = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"test\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
-        
-        // Verify SSL truststore properties are NOT set when certificates_s3_reference is null
-        assertNull(properties.get("ssl.truststore.location"));
-        assertNull(properties.get("ssl.truststore.password"));
+        // Verify properties
+        verifyCommonSaslProperties(properties, SASL_SSL, PLAIN, formatJaasConfig(false, TEST_USERNAME, TEST_PASSWORD));
+        verifyNoSslProperties(properties);
     }
 
     @Test
     public void testAuthenticationMethodsWithDifferentCredentials() throws Exception {
         // Test with different credentials to ensure they are properly extracted
-        String differentCreds = "{\"username\":\"testuser\",\"password\":\"testpass\",\"keystore_password\":\"keypass\",\"truststore_password\":\"trustpass\",\"ssl_key_password\":\"sslpass\"}";
+        String differentCreds = String.format(
+            "{\"username\":\"%s\",\"password\":\"%s\",\"keystore_password\":\"%s\",\"truststore_password\":\"%s\",\"ssl_key_password\":\"%s\"}",
+            DIFFERENT_USERNAME, DIFFERENT_PASSWORD, TEST_KEYSTORE_PASSWORD, TEST_TRUSTSTORE_PASSWORD, TEST_SSL_KEY_PASSWORD);
         Mockito.when(secretValueResponse.secretString()).thenReturn(differentCreds);
         
         // Test SCRAM PLAINTEXT
-        java.util.HashMap testConfigOptions = new java.util.HashMap(configOptions);
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_PLAINTEXT_SCRAM_SHA512.toString());
+        Map<String, String> testConfigOptions = createTestConfigOptions(KafkaUtils.AuthType.SASL_PLAINTEXT_SCRAM_SHA512.toString());
         Properties properties = getKafkaProperties(testConfigOptions);
-        
-        String expectedJaasConfig = "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"testuser\" password=\"testpass\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
+        verifyCommonSaslProperties(properties, SASL_PLAINTEXT, SCRAM_SHA_512, formatJaasConfig(true, DIFFERENT_USERNAME, DIFFERENT_PASSWORD));
         
         // Test SASL PLAIN
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_PLAINTEXT_PLAIN.toString());
+        testConfigOptions.put(KafkaConstants.AUTH_TYPE, KafkaUtils.AuthType.SASL_PLAINTEXT_PLAIN.toString());
         properties = getKafkaProperties(testConfigOptions);
-        
-        expectedJaasConfig = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"testuser\" password=\"testpass\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
+        verifyCommonSaslProperties(properties, SASL_PLAINTEXT, PLAIN, formatJaasConfig(false, DIFFERENT_USERNAME, DIFFERENT_PASSWORD));
         
         // Test SASL SSL
-        testConfigOptions.put("auth_type", KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
+        testConfigOptions.put(KafkaConstants.AUTH_TYPE, KafkaUtils.AuthType.SASL_SSL_PLAIN.toString());
         properties = getKafkaProperties(testConfigOptions);
-        
-        expectedJaasConfig = "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"testuser\" password=\"testpass\";";
-        assertEquals(expectedJaasConfig, properties.get("sasl.jaas.config"));
-        assertEquals("trustpass", properties.get("ssl.truststore.password"));
+        verifyCommonSaslProperties(properties, SASL_SSL, PLAIN, formatJaasConfig(false, DIFFERENT_USERNAME, DIFFERENT_PASSWORD));
+        assertEquals(TEST_TRUSTSTORE_PASSWORD, properties.get(SSL_TRUSTSTORE_PASSWORD));
+    }
+
+    /**
+     * Helper method to verify common SASL properties
+     */
+    private void verifyCommonSaslProperties(Properties properties, String expectedProtocol, String expectedMechanism, String expectedJaasConfig) {
+        assertEquals(expectedProtocol, properties.get(SECURITY_PROTOCOL));
+        assertEquals(expectedMechanism, properties.get(SASL_MECHANISM));
+        assertEquals(expectedJaasConfig, properties.get(SASL_JAAS_CONFIG));
+    }
+
+    /**
+     * Helper method to verify SSL truststore properties are not set
+     */
+    private void verifyNoSslProperties(Properties properties) {
+        assertNull(properties.get(SSL_TRUSTSTORE_LOCATION));
+        assertNull(properties.get(SSL_TRUSTSTORE_PASSWORD));
+    }
+
+    /**
+     * Helper method to create test config options
+     */
+    private Map<String, String> createTestConfigOptions(String authType) {
+        Map<String, String> testConfigOptions = new HashMap<>(configOptions);
+        testConfigOptions.put(KafkaConstants.AUTH_TYPE, authType);
+        return testConfigOptions;
+    }
+
+    /**
+     * Helper method to format JAAS config string
+     */
+    private String formatJaasConfig(boolean isScram, String username, String password) {
+        return String.format(isScram ? SCRAM_JAAS_TEMPLATE : PLAIN_JAAS_TEMPLATE, username, password);
     }
 }
 
