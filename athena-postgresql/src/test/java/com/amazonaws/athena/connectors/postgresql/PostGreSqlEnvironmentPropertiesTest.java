@@ -28,30 +28,112 @@ import java.util.Map;
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.DATABASE;
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.DEFAULT;
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.HOST;
+import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.JDBC_PARAMS;
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.PORT;
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.SECRET_NAME;
 import static org.junit.Assert.assertEquals;
 
 public class PostGreSqlEnvironmentPropertiesTest
 {
+    private static final String JDBC_URL_PREFIX = "postgres://jdbc:postgresql://";
+    private static final String DEFAULT_HOST = "postgres-endpoint";
+    private static final String DEFAULT_PORT = "5000";
+    private static final String DEFAULT_DATABASE = "testdb";
+    private static final String SECRET_PLACEHOLDER = "${postgres-secret}";
+    private static final String SSL_PARAMS = "ssl=true";
+
     Map<String, String> connectionProperties;
     PostGreSqlEnvironmentProperties postGreSqlEnvironmentProperties;
 
     @Before
     public void setUp() {
         connectionProperties = new HashMap<>();
-        connectionProperties.put(HOST, "postgres-endpoint");
-        connectionProperties.put(DATABASE, "testdb");
+        connectionProperties.put(HOST, DEFAULT_HOST);
+        connectionProperties.put(DATABASE, DEFAULT_DATABASE);
         connectionProperties.put(SECRET_NAME, "postgres-secret");
-        connectionProperties.put(PORT, "5000");
+        connectionProperties.put(PORT, DEFAULT_PORT);
         postGreSqlEnvironmentProperties = new PostGreSqlEnvironmentProperties();
     }
 
     @Test
-    public void postGreSqlConnectionPropertiesTest() {
+    public void testBasicConnectionString() {
         Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
 
-        String expectedConnectionString = "postgres://jdbc:postgresql://postgres-endpoint:5000/testdb?${postgres-secret}";
+        String expectedConnectionString = JDBC_URL_PREFIX + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE + "?" + SECRET_PLACEHOLDER;
+        assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void testConnectionStringWithJdbcParams() {
+        connectionProperties.put(JDBC_PARAMS, SSL_PARAMS);
+        connectionProperties.remove(SECRET_NAME);
+
+        Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+
+        String expectedConnectionString = JDBC_URL_PREFIX + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE + "?" + SSL_PARAMS;
+        assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void testConnectionStringWithJdbcParamsAndSecret() {
+        connectionProperties.put(JDBC_PARAMS, SSL_PARAMS);
+
+        Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+
+        String expectedConnectionString = JDBC_URL_PREFIX + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE + "?" + SSL_PARAMS + "&" + SECRET_PLACEHOLDER;
+        assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void testConnectionStringWithoutOptionalParams() {
+        connectionProperties.remove(SECRET_NAME);
+
+        Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+
+        String expectedConnectionString = JDBC_URL_PREFIX + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE + "?";
+        assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void testConnectionStringWithEmptyValues() {
+        connectionProperties.put(JDBC_PARAMS, "");
+        connectionProperties.put(SECRET_NAME, "");
+
+        Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+
+        String expectedConnectionString = JDBC_URL_PREFIX + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE + "?&${}";
+        assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void testEmptyJdbcParamsWithSecret() {
+        connectionProperties.put(JDBC_PARAMS, "");
+
+        Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+
+        String expectedConnectionString = JDBC_URL_PREFIX + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE + "?&" + SECRET_PLACEHOLDER;
+        assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void testSpecialCharactersInParameters() {
+        connectionProperties.put(HOST, "postgres.example.com");
+        connectionProperties.put(DATABASE, "test/db");
+        connectionProperties.put(JDBC_PARAMS, "currentSchema=public&search_path=public%2Cshared");
+
+        Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+
+        String expectedConnectionString = JDBC_URL_PREFIX + "postgres.example.com:" + DEFAULT_PORT + "/test/db?currentSchema=public&search_path=public%2Cshared&" + SECRET_PLACEHOLDER;
+        assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void testMultipleJdbcParameters() {
+        connectionProperties.put(JDBC_PARAMS, "ssl=true&sslmode=verify-full&connectTimeout=10&socketTimeout=20&tcpKeepAlive=true");
+
+        Map<String, String> postGreSqlConnectionProperties = postGreSqlEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+
+        String expectedConnectionString = JDBC_URL_PREFIX + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE + "?ssl=true&sslmode=verify-full&connectTimeout=10&socketTimeout=20&tcpKeepAlive=true&" + SECRET_PLACEHOLDER;
         assertEquals(expectedConnectionString, postGreSqlConnectionProperties.get(DEFAULT));
     }
 }
