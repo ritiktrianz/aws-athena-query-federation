@@ -22,6 +22,8 @@ package com.amazonaws.athena.connectors.postgresql;
 import org.junit.Before;
 import org.junit.Test;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.DateUnit;
 
 import java.util.Arrays;
 import java.util.List;
@@ -64,5 +66,54 @@ public class PostgreSqlFederationExpressionParserTest
         List<String> arguments = List.of("'single'");
         String result = parser.writeArrayConstructorClause(new ArrowType.Utf8(), arguments);
         assertEquals("'single'", result);
+    }
+
+    @Test
+    public void testWriteArrayConstructorClauseWithFloat() {
+        List<String> arguments = Arrays.asList("1.5", "2.75", "-3.25");
+        String result = parser.writeArrayConstructorClause(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), arguments);
+        assertEquals("1.5, 2.75, -3.25", result);
+    }
+
+    @Test
+    public void testWriteArrayConstructorClauseWithDouble() {
+        List<String> arguments = Arrays.asList("1.123456789", "-2.987654321", "3.14159265359");
+        String result = parser.writeArrayConstructorClause(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), arguments);
+        assertEquals("1.123456789, -2.987654321, 3.14159265359", result);
+    }
+
+    @Test
+    public void testWriteArrayConstructorClauseWithBoolean() {
+        List<String> arguments = Arrays.asList("true", "false", "true");
+        String result = parser.writeArrayConstructorClause(new ArrowType.Bool(), arguments);
+        assertEquals("true, false, true", result);
+    }
+
+    @Test
+    public void testWriteArrayConstructorClauseWithBigInt() {
+        List<String> arguments = Arrays.asList("9223372036854775807", "-9223372036854775808", "0");
+        String result = parser.writeArrayConstructorClause(new ArrowType.Int(64, true), arguments);
+        assertEquals("9223372036854775807, -9223372036854775808, 0", result);
+    }
+
+    @Test
+    public void testWriteArrayConstructorClauseWithSpecialCharacters() {
+        List<String> arguments = Arrays.asList("'Hello, World!'", "'It''s working'", "'Semi;Colon'");
+        String result = parser.writeArrayConstructorClause(new ArrowType.Utf8(), arguments);
+        assertEquals("'Hello, World!', 'It''s working', 'Semi;Colon'", result);
+    }
+
+    @Test
+    public void testWriteArrayConstructorClauseWithNull() {
+        List<String> arguments = Arrays.asList("null", "'value'", "null");
+        String result = parser.writeArrayConstructorClause(new ArrowType.Utf8(), arguments);
+        assertEquals("null, 'value', null", result);
+    }
+
+    @Test
+    public void testWriteArrayConstructorClauseWithDate() {
+        List<String> arguments = Arrays.asList("'2024-03-14'", "'2024-12-31'", "'2025-01-01'");
+        String result = parser.writeArrayConstructorClause(new ArrowType.Date(DateUnit.DAY), arguments);
+        assertEquals("'2024-03-14', '2024-12-31', '2025-01-01'", result);
     }
 }
