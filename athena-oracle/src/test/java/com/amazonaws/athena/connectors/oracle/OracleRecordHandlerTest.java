@@ -85,6 +85,8 @@ public class OracleRecordHandlerTest
     private static final String COL_ID = "id";
     private static final String COL_NAME = "name";
     private static final String VALUE = "value";
+    private static final long LIMIT_10 = 10L;
+    private static final long LIMIT_5 = 5L;
 
     @Before
     public void setup()
@@ -217,11 +219,7 @@ public class OracleRecordHandlerTest
         schemaBuilder.addField(FieldBuilder.newBuilder("col3", Types.MinorType.FLOAT8.getType()).build());
         Schema schema = schemaBuilder.build();
 
-        Split split = Mockito.mock(Split.class);
-        Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, "p0");
-        Mockito.when(split.getProperties()).thenReturn(splitProperties);
-        Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn("p0");
-
+        Split split = createMockSplit();
         ValueSet valueSet1 = getRangeSet(Marker.Bound.ABOVE, 10, Marker.Bound.EXACTLY, 100);
         ValueSet valueSet2 = getRangeSet(Marker.Bound.EXACTLY, "test", Marker.Bound.BELOW, "tesu");
         ValueSet valueSet3 = getRangeSet(Marker.Bound.EXACTLY, 1.0d, Marker.Bound.EXACTLY, 2.0d);
@@ -257,27 +255,11 @@ public class OracleRecordHandlerTest
     @Test
     public void buildSplitSqlWithTopN() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(VALUE, Types.MinorType.FLOAT8.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(PARTITION_COLUMN, Types.MinorType.VARCHAR.getType()).build());
-        Schema schema = schemaBuilder.build();
+        Schema schema = createSchemaWithValueField().build();
+        Split split = createMockSplit();
+        Constraints constraints = createConstraintsWithLimit(LIMIT_10);
 
-        Split split = Mockito.mock(Split.class);
-        Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, "p0");
-        Mockito.when(split.getProperties()).thenReturn(splitProperties);
-        Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn("p0");
-
-        Constraints constraints = new Constraints(
-                Collections.emptyMap(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                10L,
-                Collections.emptyMap(),
-                null
-        );
-
-        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST 10 ROWS ONLY ";
+        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST " + LIMIT_10 + " ROWS ONLY ";
         PreparedStatement expectedPreparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement preparedStatement = this.oracleRecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
@@ -289,17 +271,10 @@ public class OracleRecordHandlerTest
     @Test
     public void buildSplitSqlWithOrderBy() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_NAME, Types.MinorType.VARCHAR.getType()).build());
+        SchemaBuilder schemaBuilder = createSchemaWithCommonFields();
         schemaBuilder.addField(FieldBuilder.newBuilder(VALUE, Types.MinorType.FLOAT8.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(PARTITION_COLUMN, Types.MinorType.VARCHAR.getType()).build());
         Schema schema = schemaBuilder.build();
-
-        Split split = Mockito.mock(Split.class);
-        Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, "p0");
-        Mockito.when(split.getProperties()).thenReturn(splitProperties);
-        Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn("p0");
+        Split split = createMockSplit();
 
         Constraints constraints = new Constraints(
                 Collections.emptyMap(),
@@ -311,9 +286,7 @@ public class OracleRecordHandlerTest
         );
         
         String expectedSql = "SELECT \"id\", \"name\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  ORDER BY \"value\" DESC, \"name\" ASC";
-        PreparedStatement expectedPreparedStatement = Mockito.mock(PreparedStatement.class);
-        Mockito.when(this.connection.prepareStatement(Mockito.anyString())).thenReturn(expectedPreparedStatement);
-        Mockito.when(this.connection.prepareStatement(Mockito.eq(expectedSql))).thenReturn(expectedPreparedStatement);
+        PreparedStatement expectedPreparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement preparedStatement = this.oracleRecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
 
@@ -324,30 +297,12 @@ public class OracleRecordHandlerTest
     @Test
     public void buildSplitSqlWithLimitOffset() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(VALUE, Types.MinorType.FLOAT8.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(PARTITION_COLUMN, Types.MinorType.VARCHAR.getType()).build());
-        Schema schema = schemaBuilder.build();
-
-        Split split = Mockito.mock(Split.class);
-        Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, "p0");
-        Mockito.when(split.getProperties()).thenReturn(splitProperties);
-        Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn("p0");
-
-        Constraints constraints = new Constraints(
-                Collections.emptyMap(),
-                Collections.emptyList(),
-                Collections.emptyList(),
-                5L,
-                Collections.emptyMap(),
-                null
-        );
+        Schema schema = createSchemaWithValueField().build();
+        Split split = createMockSplit();
+        Constraints constraints = createConstraintsWithLimit(LIMIT_5);
         
-        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST 5 ROWS ONLY ";
-        PreparedStatement expectedPreparedStatement = Mockito.mock(PreparedStatement.class);
-        Mockito.when(this.connection.prepareStatement(Mockito.anyString())).thenReturn(expectedPreparedStatement);
-        Mockito.when(this.connection.prepareStatement(Mockito.eq(expectedSql))).thenReturn(expectedPreparedStatement);
+        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST " + LIMIT_5 + " ROWS ONLY ";
+        PreparedStatement expectedPreparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement preparedStatement = this.oracleRecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
 
@@ -358,17 +313,13 @@ public class OracleRecordHandlerTest
     @Test
     public void buildSqlWithRangeAndInPredicatesTest() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
+        SchemaBuilder schemaBuilder = createBasicSchemaBuilder();
         schemaBuilder.addField(FieldBuilder.newBuilder("intCol", Types.MinorType.INT.getType()).build());
         schemaBuilder.addField(FieldBuilder.newBuilder("doubleCol", Types.MinorType.FLOAT8.getType()).build());
         schemaBuilder.addField(FieldBuilder.newBuilder("stringCol", Types.MinorType.VARCHAR.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(PARTITION_COLUMN, Types.MinorType.VARCHAR.getType()).build());
         Schema schema = schemaBuilder.build();
 
-        Split split = Mockito.mock(Split.class);
-        Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, "p0");
-        Mockito.when(split.getProperties()).thenReturn(splitProperties);
-        Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn("p0");
+        Split split = createMockSplit();
 
         ValueSet intValueSet = getSingleValueSet(Arrays.asList(1, 2, 3));
         ValueSet doubleValueSet = getRangeSet(Marker.Bound.EXACTLY, 1.5d, Marker.Bound.BELOW, 5.5d);
@@ -409,16 +360,11 @@ public class OracleRecordHandlerTest
     @Test
     public void buildSqlWithNullableComparisonsTest() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
+        SchemaBuilder schemaBuilder = createBasicSchemaBuilder();
         schemaBuilder.addField(FieldBuilder.newBuilder("nullableCol1", Types.MinorType.INT.getType()).build());
         schemaBuilder.addField(FieldBuilder.newBuilder("nullableCol2", Types.MinorType.VARCHAR.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(PARTITION_COLUMN, Types.MinorType.VARCHAR.getType()).build());
         Schema schema = schemaBuilder.build();
-
-        Split split = Mockito.mock(Split.class);
-        Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, "p0");
-        Mockito.when(split.getProperties()).thenReturn(splitProperties);
-        Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn("p0");
+        Split split = createMockSplit();
 
         ValueSet nullValueSet = Mockito.mock(SortedRangeSet.class, Mockito.RETURNS_DEEP_STUBS);
         Mockito.when(nullValueSet.isNullAllowed()).thenReturn(true);
@@ -455,17 +401,12 @@ public class OracleRecordHandlerTest
     @Test
     public void testComplexExpressionWithDifferentDataTypes() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
+        SchemaBuilder schemaBuilder = createBasicSchemaBuilder();
         schemaBuilder.addField(FieldBuilder.newBuilder("dateCol", Types.MinorType.DATEDAY.getType()).build());
         schemaBuilder.addField(FieldBuilder.newBuilder("timestampCol", Types.MinorType.DATEMILLI.getType()).build());
         schemaBuilder.addField(FieldBuilder.newBuilder("decimalCol", new ArrowType.Decimal(38, 2, 128)).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(PARTITION_COLUMN, Types.MinorType.VARCHAR.getType()).build());
         Schema schema = schemaBuilder.build();
-
-        Split split = Mockito.mock(Split.class);
-        Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, "p0");
-        Mockito.when(split.getProperties()).thenReturn(splitProperties);
-        Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn("p0");
+        Split split = createMockSplit();
 
         ValueSet dateValueSet = getRangeSet(Marker.Bound.EXACTLY, LocalDate.parse("2025-01-01").toEpochDay(), Marker.Bound.EXACTLY, LocalDate.parse("2025-12-31").toEpochDay());
 
@@ -501,10 +442,7 @@ public class OracleRecordHandlerTest
     @Test
     public void buildSqlWithQueryPassthrough() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = createBasicSchemaBuilder();
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_NAME, Types.MinorType.VARCHAR.getType()).build());
-        Schema schema = schemaBuilder.build();
+        Schema schema = createSchemaWithCommonFields().build();
 
         Split split = createMockSplit();
 
@@ -531,13 +469,8 @@ public class OracleRecordHandlerTest
     @Test
     public void testEmptyConstraints() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = createBasicSchemaBuilder();
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_NAME, Types.MinorType.VARCHAR.getType()).build());
-        Schema schema = schemaBuilder.build();
-
+        Schema schema = createSchemaWithCommonFields().build();
         Split split = createMockSplit();
-
         Constraints constraints = new Constraints(
                 Collections.emptyMap(),
                 Collections.emptyList(),
@@ -559,11 +492,7 @@ public class OracleRecordHandlerTest
     @Test
     public void testEmptyConstraintsWithOrderBy() throws SQLException {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
-        SchemaBuilder schemaBuilder = createBasicSchemaBuilder();
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build());
-        schemaBuilder.addField(FieldBuilder.newBuilder(COL_NAME, Types.MinorType.VARCHAR.getType()).build());
-        Schema schema = schemaBuilder.build();
-
+        Schema schema = createSchemaWithCommonFields().build();
         Split split = createMockSplit();
 
         List<OrderByField> orderByFields = new ArrayList<>();
@@ -628,12 +557,36 @@ public class OracleRecordHandlerTest
         return schemaBuilder;
     }
 
+    private SchemaBuilder createSchemaWithCommonFields() {
+        return createBasicSchemaBuilder()
+                .addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build())
+                .addField(FieldBuilder.newBuilder(COL_NAME, Types.MinorType.VARCHAR.getType()).build());
+    }
+
+    private SchemaBuilder createSchemaWithValueField() {
+        return createBasicSchemaBuilder()
+                .addField(FieldBuilder.newBuilder(COL_ID, Types.MinorType.INT.getType()).build())
+                .addField(FieldBuilder.newBuilder(VALUE, Types.MinorType.FLOAT8.getType()).build());
+    }
+
     private Split createMockSplit() {
         Split split = Mockito.mock(Split.class);
         Map<String, String> splitProperties = Collections.singletonMap(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, TEST_PARTITION);
         Mockito.when(split.getProperties()).thenReturn(splitProperties);
         Mockito.when(split.getProperty(Mockito.eq(OracleMetadataHandler.BLOCK_PARTITION_COLUMN_NAME))).thenReturn(TEST_PARTITION);
         return split;
+    }
+
+
+    private Constraints createConstraintsWithLimit(long limit) {
+        return new Constraints(
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                limit,
+                Collections.emptyMap(),
+                null
+        );
     }
 
     private PreparedStatement createMockPreparedStatement(String expectedSql) throws SQLException {
