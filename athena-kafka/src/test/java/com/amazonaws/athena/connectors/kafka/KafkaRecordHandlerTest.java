@@ -44,7 +44,6 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.MockConsumer;
-import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.After;
 import org.junit.Before;
@@ -78,6 +77,27 @@ import static org.mockito.Mockito.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class KafkaRecordHandlerTest {
+    private static final String EARLIEST = "earliest";
+    private static final String MY_TOPIC = "myTopic";
+    private static final String GREETINGS_TOPIC = "greetings";
+    private static final String PROTOBUF_TEST_TOPIC = "protobuftest";
+    private static final String TEST_CATALOG = "testCatalog";
+    private static final String TEST_SCHEMA = "testSchema";
+    private static final String TEST_TABLE = "testTable";
+    private static final String QUERY_ID = "queryId";
+    private static final String DEFAULT_ARN = "defaultArn";
+    private static final String DEFAULT_SCHEMA_NAME = "defaultSchemaName";
+    private static final String DEFAULT_VERSION_ID = "defaultVersionId";
+    private static final Long DEFAULT_LATEST_SCHEMA_VERSION = 123L;
+    private static final String TEST_BUCKET = "bucket";
+    private static final String TEST_PREFIX = "prefix";
+    private static final String JSON_FORMAT = "json";
+    private static final String AVRO_FORMAT = "avro";
+    private static final String PROTOBUF_FORMAT = "protobuf";
+    private static final String TEST_KEY_1 = "k1";
+    private static final String TEST_KEY_2 = "k2";
+    private static final String TEST_KEY_3 = "k3";
+    private static final int PARTITION = 0;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private MockedStatic<GlueClient> awsGlueClientBuilder;
@@ -118,28 +138,28 @@ public class KafkaRecordHandlerTest {
     private MockedStatic<KafkaUtils> mockedKafkaUtils;
 
     @Before
-    public void setUp() throws Exception {
-        MockitoAnnotations.initMocks(this);
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
 
-        consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
-        ConsumerRecord<String, TopicResultSet> record1 = createConsumerRecord("myTopic", 0, 0, "k1", createTopicResultSet("myTopic"));
-        ConsumerRecord<String, TopicResultSet> record2 = createConsumerRecord("myTopic", 0, 1, "k2", createTopicResultSet("myTopic"));
-        ConsumerRecord<String, TopicResultSet> nullValueRecord = createConsumerRecord("myTopic", 0, 2, "k3", null);
+        consumer = new MockConsumer<>(EARLIEST);
+        ConsumerRecord<String, TopicResultSet> record1 = createConsumerRecord(0, TEST_KEY_1, createTopicResultSet());
+        ConsumerRecord<String, TopicResultSet> record2 = createConsumerRecord(1, TEST_KEY_2, createTopicResultSet());
+        ConsumerRecord<String, TopicResultSet> nullValueRecord = createConsumerRecord(2, TEST_KEY_3, null);
         consumer.schedulePollTask(() -> {
             consumer.addRecord(record1);
             consumer.addRecord(record2);
             consumer.addRecord(nullValueRecord);
         });
-        avroConsumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
-        ConsumerRecord<String, GenericRecord> avroRecord = createAvroConsumerRecord("greetings", 0 , 0, "k1", createGenericRecord("greetings"));
-        ConsumerRecord<String, GenericRecord> avroNullValueRecord = createAvroConsumerRecord("greetings", 0 , 1, "k2", null);
+        avroConsumer = new MockConsumer<>(EARLIEST);
+        ConsumerRecord<String, GenericRecord> avroRecord = createAvroConsumerRecord(0, TEST_KEY_1, createGenericRecord());
+        ConsumerRecord<String, GenericRecord> avroNullValueRecord = createAvroConsumerRecord(1, TEST_KEY_2, null);
         avroConsumer.schedulePollTask(() -> {
             avroConsumer.addRecord(avroRecord);
             avroConsumer.addRecord(avroNullValueRecord);
         });
-        protobufConsumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
-        ConsumerRecord<String, DynamicMessage> protobufRecord = createProtobufConsumerRecord("protobuftest", 0, 0, "k1", createDynamicRecord());
-        ConsumerRecord<String, DynamicMessage> protobufNullValueRecord = createProtobufConsumerRecord("protobuftest", 0, 1, "k2", null);
+        protobufConsumer = new MockConsumer<>(EARLIEST);
+        ConsumerRecord<String, DynamicMessage> protobufRecord = createProtobufConsumerRecord(0, TEST_KEY_1, createDynamicRecord());
+        ConsumerRecord<String, DynamicMessage> protobufNullValueRecord = createProtobufConsumerRecord(1, TEST_KEY_2, null);
         protobufConsumer.schedulePollTask(() -> {
             protobufConsumer.addRecord(protobufRecord);
             protobufConsumer.addRecord(protobufNullValueRecord);
@@ -159,7 +179,7 @@ public class KafkaRecordHandlerTest {
         mockedKafkaUtils = Mockito.mockStatic(KafkaUtils.class, Mockito.CALLS_REAL_METHODS);
         kafkaRecordHandler = new KafkaRecordHandler(amazonS3, awsSecretsManager, athena, com.google.common.collect.ImmutableMap.of());
         awsGlueClientBuilder = Mockito.mockStatic(GlueClient.class);
-        awsGlueClientBuilder.when(()-> GlueClient.create()).thenReturn(awsGlue);
+        awsGlueClientBuilder.when(GlueClient::create).thenReturn(awsGlue);
     }
 
     @After
@@ -172,14 +192,14 @@ public class KafkaRecordHandlerTest {
     public void testForConsumeDataFromTopic() throws Exception {
         HashMap<TopicPartition, Long> offsets;
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 0L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 0L);
         consumer.updateBeginningOffsets(offsets);
 
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 1L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 1L);
         consumer.updateEndOffsets(offsets);
 
-        SplitParameters splitParameters = new SplitParameters("myTopic", 0, 0, 2);
+        SplitParameters splitParameters = new SplitParameters(MY_TOPIC, PARTITION, 0, 2);
         Schema schema = createSchema(createCsvTopicSchema());
 
         mockedKafkaUtils.when(() -> KafkaUtils.getKafkaConsumer(schema, com.google.common.collect.ImmutableMap.of())).thenReturn(consumer);
@@ -200,14 +220,14 @@ public class KafkaRecordHandlerTest {
     public void testForConsumeAvroDataFromTopic() throws Exception {
         HashMap<TopicPartition, Long> offsets;
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("greetings", 0), 0L);
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 0L);
         avroConsumer.updateBeginningOffsets(offsets);
 
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("greetings", 0), 1L);
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 1L);
         avroConsumer.updateEndOffsets(offsets);
 
-        SplitParameters splitParameters = new SplitParameters("greetings", 0, 0, 1);
+        SplitParameters splitParameters = new SplitParameters(GREETINGS_TOPIC, PARTITION, 0, 1);
         Schema schema = createAvroSchema(createAvroTopicSchema());
 
         mockedKafkaUtils.when(() -> KafkaUtils.getAvroKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(avroConsumer);
@@ -229,14 +249,14 @@ public class KafkaRecordHandlerTest {
     public void testForConsumeProtobufDataFromTopic() throws Exception {
         HashMap<TopicPartition, Long> offsets;
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("protobuftest", 0), 0L);
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 0L);
         protobufConsumer.updateBeginningOffsets(offsets);
 
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("protobuftest", 0), 1L);
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 1L);
         protobufConsumer.updateEndOffsets(offsets);
 
-        SplitParameters splitParameters = new SplitParameters("protobuftest", 0, 0, 1);
+        SplitParameters splitParameters = new SplitParameters(PROTOBUF_TEST_TOPIC, PARTITION, 0, 1);
         Schema schema = createProtobufSchema(createProtobufTopicSchema());
 
         mockedKafkaUtils.when(() -> KafkaUtils.getProtobufKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(protobufConsumer);
@@ -258,14 +278,14 @@ public class KafkaRecordHandlerTest {
     public void testForQueryStatusChecker() throws Exception {
         HashMap<TopicPartition, Long> offsets;
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 0L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 0L);
         consumer.updateBeginningOffsets(offsets);
 
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 1L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 1L);
         consumer.updateEndOffsets(offsets);
 
-        SplitParameters splitParameters = new SplitParameters("myTopic", 0, 0, 1);
+        SplitParameters splitParameters = new SplitParameters(MY_TOPIC, PARTITION, 0, 1);
         Schema schema = createSchema(createCsvTopicSchema());
 
         mockedKafkaUtils.when(() -> KafkaUtils.getKafkaConsumer(schema, com.google.common.collect.ImmutableMap.of())).thenReturn(consumer);
@@ -284,18 +304,18 @@ public class KafkaRecordHandlerTest {
 
     @Test
     public void testForEndOffsetIsZero() throws Exception {
-        consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+        consumer = new MockConsumer<>(EARLIEST);
 
         HashMap<TopicPartition, Long> offsets;
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 0L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 0L);
         consumer.updateBeginningOffsets(offsets);
 
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 0L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 0L);
         consumer.updateEndOffsets(offsets);
 
-        SplitParameters splitParameters = new SplitParameters("myTopic", 0, 0, 1);
+        SplitParameters splitParameters = new SplitParameters(MY_TOPIC, PARTITION, 0, 1);
         Schema schema = createSchema(createCsvTopicSchema());
 
         mockedKafkaUtils.when(() -> KafkaUtils.getKafkaConsumer(schema, com.google.common.collect.ImmutableMap.of())).thenReturn(consumer);
@@ -310,18 +330,18 @@ public class KafkaRecordHandlerTest {
 
     @Test
     public void testForContinuousEmptyDataFromTopic() throws Exception {
-        consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+        consumer = new MockConsumer<>(EARLIEST);
 
         HashMap<TopicPartition, Long> offsets;
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 0L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 0L);
         consumer.updateBeginningOffsets(offsets);
 
         offsets = new HashMap<>();
-        offsets.put(new TopicPartition("myTopic", 0), 10L);
+        offsets.put(new TopicPartition(MY_TOPIC, PARTITION), 10L);
         consumer.updateEndOffsets(offsets);
 
-        SplitParameters splitParameters = new SplitParameters("myTopic", 0, 0, 1);
+        SplitParameters splitParameters = new SplitParameters(MY_TOPIC, PARTITION, 0, 1);
         Schema schema = createSchema(createCsvTopicSchema());
 
         mockedKafkaUtils.when(() -> KafkaUtils.getKafkaConsumer(schema, com.google.common.collect.ImmutableMap.of())).thenReturn(consumer);
@@ -337,52 +357,32 @@ public class KafkaRecordHandlerTest {
         kafkaRecordHandler.readWithConstraint(null, request, queryStatusChecker);
     }
 
-    private ReadRecordsRequest createReadRecordsRequest(Schema schema) {
-        return new ReadRecordsRequest(
-                federatedIdentity,
-                "testCatalog",
-                "queryId",
-                new TableName("testSchema", "testTable"),
-                schema,
-                Split.newBuilder(S3SpillLocation.newBuilder()
-                                .withBucket("bucket")
-                                .withPrefix("prefix")
-                                .withSplitId(UUID.randomUUID().toString())
-                                .withQueryId(UUID.randomUUID().toString())
-                                .withIsDirectory(true)
-                                .build(),
-                        keyFactory.create()).build(),
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                0,
-                0);
+    private ConsumerRecord<String, TopicResultSet> createConsumerRecord(long offset, String key, TopicResultSet data) {
+        return new ConsumerRecord<>(MY_TOPIC, PARTITION, offset, key, data);
     }
 
-    private ConsumerRecord<String, TopicResultSet> createConsumerRecord(String topic, int partition, long offset, String key, TopicResultSet data) throws Exception {
-        return new ConsumerRecord<>(topic, partition, offset, key, data);
+    private ConsumerRecord<String, GenericRecord> createAvroConsumerRecord(long offset, String key, GenericRecord data) {
+        return new ConsumerRecord<>(GREETINGS_TOPIC, PARTITION, offset, key, data);
     }
 
-    private ConsumerRecord<String, GenericRecord> createAvroConsumerRecord(String topic, int partition, long offset, String key, GenericRecord data) throws Exception {
-        return new ConsumerRecord<>(topic, partition, offset, key, data);
+    private ConsumerRecord<String, DynamicMessage> createProtobufConsumerRecord(long offset, String key, DynamicMessage data) {
+        return new ConsumerRecord<>(PROTOBUF_TEST_TOPIC, PARTITION, offset, key, data);
     }
 
-    private ConsumerRecord<String, DynamicMessage> createProtobufConsumerRecord(String topic, int partition, long offset, String key, DynamicMessage data) throws Exception {
-        return new ConsumerRecord<>(topic, partition, offset, key, data);
-    }
-
-    private TopicResultSet createTopicResultSet(String topic) {
+    private TopicResultSet createTopicResultSet() {
         TopicResultSet resultSet = new TopicResultSet();
-        resultSet.setTopicName(topic);
+        resultSet.setTopicName(MY_TOPIC);
         resultSet.setDataFormat(Message.DATA_FORMAT_CSV);
         resultSet.getFields().add(new KafkaField("id", "0", "INTEGER", "", Integer.parseInt("1")));
-        resultSet.getFields().add(new KafkaField("name", "1", "VARCHAR", "", new String("Smith")));
+        resultSet.getFields().add(new KafkaField("name", "1", "VARCHAR", "", "Smith"));
         resultSet.getFields().add(new KafkaField("isActive", "2", "BOOLEAN", "", Boolean.valueOf("true")));
         resultSet.getFields().add(new KafkaField("code", "3", "TINYINT", "", Byte.parseByte("101")));
         return resultSet;
     }
 
-    private GenericRecord createGenericRecord(String topic) {
+    private GenericRecord createGenericRecord() {
         org.apache.avro.Schema.Parser parser = new org.apache.avro.Schema.Parser();
-        String schemaString = "{\"type\": \"record\",\"name\":\"" + topic + "\",\"fields\": [{\"name\": \"id\", \"type\": \"int\"},{\"name\": \"name\", \"type\": \"string\"},{\"name\": \"greeting\",\"type\": \"string\"}]}";
+        String schemaString = "{\"type\": \"record\",\"name\":\"" + GREETINGS_TOPIC + "\",\"fields\": [{\"name\": \"id\", \"type\": \"int\"},{\"name\": \"name\", \"type\": \"string\"},{\"name\": \"greeting\",\"type\": \"string\"}]}";
         org.apache.avro.Schema schema = parser.parse(schemaString);
         GenericRecord record = new GenericData.Record(schema);
 
@@ -395,7 +395,7 @@ public class KafkaRecordHandlerTest {
 
     private DynamicMessage createDynamicRecord() {
         String schema = "syntax = \"proto3\";\n" +
-                "message protobuftest {\n" +
+                "message " + PROTOBUF_TEST_TOPIC + " {\n" +
                 "string name = 1;\n" +
                 "int32 calories = 2;\n" +
                 "string colour = 3; \n" +
@@ -412,7 +412,7 @@ public class KafkaRecordHandlerTest {
         return builder.build();
     }
 
-    private Schema createSchema(TopicSchema topicSchema) throws Exception {
+    private Schema createSchema(TopicSchema topicSchema) {
         SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
         topicSchema.getMessage().getFields().forEach(it -> {
             FieldType fieldType = new FieldType(
@@ -433,7 +433,7 @@ public class KafkaRecordHandlerTest {
         return schemaBuilder.build();
     }
 
-    private Schema createAvroSchema(AvroTopicSchema avroTopicSchema) throws Exception {
+    private Schema createAvroSchema(AvroTopicSchema avroTopicSchema) {
         SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
         avroTopicSchema.getFields().forEach(it -> {
             FieldType fieldType = new FieldType(
@@ -453,7 +453,7 @@ public class KafkaRecordHandlerTest {
         return schemaBuilder.build();
     }
 
-    private Schema createProtobufSchema(ProtobufSchema protobufTopicSchema) throws Exception {
+    private Schema createProtobufSchema(ProtobufSchema protobufTopicSchema) {
         SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
         Descriptors.Descriptor descriptor = protobufTopicSchema.toDescriptor();
         for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
@@ -495,56 +495,326 @@ public class KafkaRecordHandlerTest {
                 "int32 calories = 2;\n" +
                 "string colour = 3; \n" +
                 "}";
-        ProtobufSchema protobufSchema = new ProtobufSchema(protobuf);
-        return protobufSchema;
+        return new ProtobufSchema(protobuf);
+    }
+
+    @Test
+    public void testAvroEndOffsetIsZero() throws Exception {
+        avroConsumer = new MockConsumer<>(EARLIEST);
+
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 0L);
+        avroConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 0L);
+        avroConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(GREETINGS_TOPIC, PARTITION, 0, 1);
+        Schema schema = createAvroSchema(createAvroTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getAvroKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(avroConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getAvroSchemaVersionResponse());
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, null);
+    }
+
+    @Test
+    public void testProtobufEndOffsetIsZero() throws Exception {
+        protobufConsumer = new MockConsumer<>(EARLIEST);
+
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 0L);
+        protobufConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 0L);
+        protobufConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(PROTOBUF_TEST_TOPIC, PARTITION, 0, 1);
+        Schema schema = createProtobufSchema(createProtobufTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getProtobufKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(protobufConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getProtobufSchemaVersionResponse());
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, null);
+    }
+
+    @Test
+    public void testAvroQueryStatusChecker() throws Exception {
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 0L);
+        avroConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 1L);
+        avroConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(GREETINGS_TOPIC, PARTITION, 0, 1);
+        Schema schema = createAvroSchema(createAvroTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getAvroKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(avroConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getAvroSchemaVersionResponse());
+
+        QueryStatusChecker queryStatusChecker = mock(QueryStatusChecker.class);
+        when(queryStatusChecker.isQueryRunning()).thenReturn(false);
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, queryStatusChecker);
+    }
+
+    @Test
+    public void testProtobufQueryStatusChecker() throws Exception {
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 0L);
+        protobufConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 1L);
+        protobufConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(PROTOBUF_TEST_TOPIC, PARTITION, 0, 1);
+        Schema schema = createProtobufSchema(createProtobufTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getProtobufKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(protobufConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getProtobufSchemaVersionResponse());
+
+        QueryStatusChecker queryStatusChecker = mock(QueryStatusChecker.class);
+        when(queryStatusChecker.isQueryRunning()).thenReturn(false);
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, queryStatusChecker);
+    }
+
+    @Test
+    public void testAvroContinuousEmptyDataFromTopic() throws Exception {
+        avroConsumer = new MockConsumer<>(EARLIEST);
+
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 0L);
+        avroConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 10L);
+        avroConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(GREETINGS_TOPIC, PARTITION, 0, 1);
+        Schema schema = createAvroSchema(createAvroTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getAvroKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(avroConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getAvroSchemaVersionResponse());
+
+        QueryStatusChecker queryStatusChecker = mock(QueryStatusChecker.class);
+        when(queryStatusChecker.isQueryRunning()).thenReturn(true);
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, queryStatusChecker);
+    }
+
+    @Test
+    public void testProtobufContinuousEmptyDataFromTopic() throws Exception {
+        protobufConsumer = new MockConsumer<>(EARLIEST);
+
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 0L);
+        protobufConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 10L);
+        protobufConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(PROTOBUF_TEST_TOPIC, PARTITION, 0, 1);
+        Schema schema = createProtobufSchema(createProtobufTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getProtobufKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(protobufConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getProtobufSchemaVersionResponse());
+
+        QueryStatusChecker queryStatusChecker = mock(QueryStatusChecker.class);
+        when(queryStatusChecker.isQueryRunning()).thenReturn(true);
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, queryStatusChecker);
+    }
+
+    @Test
+    public void testAvroWithNullRecordHandling() throws Exception {
+        avroConsumer = new MockConsumer<>(EARLIEST);
+
+        // Add only null records to test null handling
+        ConsumerRecord<String, GenericRecord> nullRecord1 = createAvroConsumerRecord(0, "k1", null);
+        ConsumerRecord<String, GenericRecord> nullRecord2 = new ConsumerRecord<>(GREETINGS_TOPIC, PARTITION, 1, "k2", null);
+
+        avroConsumer.schedulePollTask(() -> {
+            avroConsumer.addRecord(nullRecord1);
+            avroConsumer.addRecord(nullRecord2);
+        });
+
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 0L);
+        avroConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(GREETINGS_TOPIC, PARTITION), 2L);
+        avroConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(GREETINGS_TOPIC, PARTITION, 0, 2);
+        Schema schema = createAvroSchema(createAvroTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getAvroKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(avroConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getAvroSchemaVersionResponse());
+
+        QueryStatusChecker queryStatusChecker = mock(QueryStatusChecker.class);
+        when(queryStatusChecker.isQueryRunning()).thenReturn(true);
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        BlockSpiller spiller = new S3BlockSpiller(amazonS3, spillConfig, allocator, schema, ConstraintEvaluator.emptyEvaluator(), com.google.common.collect.ImmutableMap.of());
+        kafkaRecordHandler.readWithConstraint(spiller, request, queryStatusChecker);
+        assertEquals(0, spiller.getBlock().getRowCount());
+    }
+
+    @Test
+    public void testProtobufWithNullRecordHandling() throws Exception {
+        protobufConsumer = new MockConsumer<>(EARLIEST);
+
+        // Add only null records to test null handling
+        ConsumerRecord<String, DynamicMessage> nullRecord1 = createProtobufConsumerRecord(0, "k1", null);
+        ConsumerRecord<String, DynamicMessage> nullRecord2 = new ConsumerRecord<>(PROTOBUF_TEST_TOPIC, PARTITION, 1, "k2", null);
+
+        protobufConsumer.schedulePollTask(() -> {
+            protobufConsumer.addRecord(nullRecord1);
+            protobufConsumer.addRecord(nullRecord2);
+        });
+
+        HashMap<TopicPartition, Long> offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 0L);
+        protobufConsumer.updateBeginningOffsets(offsets);
+
+        offsets = new HashMap<>();
+        offsets.put(new TopicPartition(PROTOBUF_TEST_TOPIC, PARTITION), 2L);
+        protobufConsumer.updateEndOffsets(offsets);
+
+        SplitParameters splitParameters = new SplitParameters(PROTOBUF_TEST_TOPIC, PARTITION, 0, 2);
+        Schema schema = createProtobufSchema(createProtobufTopicSchema());
+
+        mockedKafkaUtils.when(() -> KafkaUtils.getProtobufKafkaConsumer(com.google.common.collect.ImmutableMap.of())).thenReturn(protobufConsumer);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenReturn(getSchemaResponse());
+        Mockito.when(awsGlue.getSchemaVersion(any(GetSchemaVersionRequest.class))).thenReturn(getProtobufSchemaVersionResponse());
+
+        QueryStatusChecker queryStatusChecker = mock(QueryStatusChecker.class);
+        when(queryStatusChecker.isQueryRunning()).thenReturn(true);
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        BlockSpiller spiller = new S3BlockSpiller(amazonS3, spillConfig, allocator, schema, ConstraintEvaluator.emptyEvaluator(), com.google.common.collect.ImmutableMap.of());
+        kafkaRecordHandler.readWithConstraint(spiller, request, queryStatusChecker);
+
+        assertEquals(0, spiller.getBlock().getRowCount());
+    }
+
+    @Test(expected = Exception.class)
+    public void testReadWithConstraintWithInvalidSplitParameters() throws Exception {
+        // Test with invalid split parameters that would cause KafkaUtils.createSplitParam to fail
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenThrow(new RuntimeException("Invalid split parameters"));
+
+        Schema schema = createSchema(createCsvTopicSchema());
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, null);
+    }
+
+    @Test(expected = Exception.class)
+    public void testReadWithConstraintWithGlueSchemaException() throws Exception {
+        SplitParameters splitParameters = new SplitParameters(MY_TOPIC, PARTITION, 0, 1);
+        mockedKafkaUtils.when(() -> KafkaUtils.createSplitParam(anyMap())).thenReturn(splitParameters);
+
+        // Mock Glue to throw exception
+        Mockito.when(awsGlue.getSchema(any(GetSchemaRequest.class))).thenThrow(new RuntimeException("Glue schema error"));
+
+        Schema schema = createSchema(createCsvTopicSchema());
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        kafkaRecordHandler.readWithConstraint(null, request, null);
     }
 
     private GetSchemaResponse getSchemaResponse() {
-        String arn = "defaultArn", schemaName = "defaultSchemaName";
-        Long latestSchemaVersion = 123L;
-        GetSchemaResponse getSchemaResponse = GetSchemaResponse.builder()
-                .schemaArn(arn)
-                .schemaName(schemaName)
-                .latestSchemaVersion(latestSchemaVersion)
+        return GetSchemaResponse.builder()
+                .schemaArn(DEFAULT_ARN)
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .latestSchemaVersion(DEFAULT_LATEST_SCHEMA_VERSION)
                 .build();
-        return getSchemaResponse;
     }
 
     private GetSchemaVersionResponse getJsonSchemaVersionResponse() {
-        String arn = "defaultArn", schemaVersionId = "defaultVersionId";
-        GetSchemaVersionResponse getJsonSchemaVersionResponse = GetSchemaVersionResponse.builder()
-                .schemaArn(arn)
-                .schemaVersionId(schemaVersionId)
-                .dataFormat("json")
+        return GetSchemaVersionResponse.builder()
+                .schemaArn(DEFAULT_ARN)
+                .schemaVersionId(DEFAULT_VERSION_ID)
+                .dataFormat(JSON_FORMAT)
                 .schemaDefinition("{\"topicName\": \"testtable\", \"\"message\": {\"dataFormat\": \"json\", \"fields\": [{\"name\": \"intcol\", \"mapping\": \"intcol\", \"type\": \"INTEGER\"}]}\"}")
                 .build();
-        return getJsonSchemaVersionResponse;
     }
 
     private GetSchemaVersionResponse getAvroSchemaVersionResponse() {
-        String arn = "defaultArn", schemaVersionId = "defaultVersionId";
-        GetSchemaVersionResponse getAvroSchemaVersionResponse = GetSchemaVersionResponse.builder()
-                .schemaArn(arn)
-                .schemaVersionId(schemaVersionId)
-                .dataFormat("avro")
-                .schemaDefinition("{\"type\": \"record\",\"name\":\"greetings\",\"fields\": [{\"name\": \"id\", \"type\": \"int\"},{\"name\": \"name\", \"type\": \"string\"},{\"name\": \"greeting\",\"type\": \"string\"}]}")
+        return GetSchemaVersionResponse.builder()
+                .schemaArn(DEFAULT_ARN)
+                .schemaVersionId(DEFAULT_VERSION_ID)
+                .dataFormat(AVRO_FORMAT)
+                .schemaDefinition("{\"type\": \"record\",\"name\":\"" + GREETINGS_TOPIC + "\",\"fields\": [{\"name\": \"id\", \"type\": \"int\"},{\"name\": \"name\", \"type\": \"string\"},{\"name\": \"greeting\",\"type\": \"string\"}]}")
                 .build();
-        return getAvroSchemaVersionResponse;
     }
 
     private GetSchemaVersionResponse getProtobufSchemaVersionResponse() {
-        String arn = "defaultArn", schemaVersionId = "defaultVersionId";
-        GetSchemaVersionResponse getProtobufSchemaVersionResponse = GetSchemaVersionResponse.builder()
-                .schemaArn(arn)
-                .schemaVersionId(schemaVersionId)
-                .dataFormat("protobuf")
+        return GetSchemaVersionResponse.builder()
+                .schemaArn(DEFAULT_ARN)
+                .schemaVersionId(DEFAULT_VERSION_ID)
+                .dataFormat(PROTOBUF_FORMAT)
                 .schemaDefinition("syntax = \"proto3\";\n" +
-                        "message protobuftest {\n" +
+                        "message " + PROTOBUF_TEST_TOPIC + " {\n" +
                         "string name = 1;\n" +
                         "int32 calories = 2;\n" +
                         "string colour = 3; \n" +
                         "}")
                 .build();
-        return getProtobufSchemaVersionResponse;
+    }
+
+    private ReadRecordsRequest createReadRecordsRequest(Schema schema) {
+        return new ReadRecordsRequest(
+                federatedIdentity,
+                TEST_CATALOG,
+                QUERY_ID,
+                new TableName(TEST_SCHEMA, TEST_TABLE),
+                schema,
+                Split.newBuilder(S3SpillLocation.newBuilder()
+                                .withBucket(TEST_BUCKET)
+                                .withPrefix(TEST_PREFIX)
+                                .withSplitId(UUID.randomUUID().toString())
+                                .withQueryId(UUID.randomUUID().toString())
+                                .withIsDirectory(true)
+                                .build(),
+                        keyFactory.create()).build(),
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                0,
+                0);
     }
 }
