@@ -128,18 +128,6 @@ public class SaphanaMetadataHandler extends JdbcMetadataHandler
                 configOptions,
                 caseResolver);
     }
-
-    @VisibleForTesting
-    protected SaphanaMetadataHandler(
-            DatabaseConnectionConfig databaseConnectionConfig,
-            SecretsManagerClient secretsManager,
-            AthenaClient athena,
-            JdbcConnectionFactory jdbcConnectionFactory,
-            java.util.Map<String, String> configOptions)
-    {
-        super(databaseConnectionConfig, secretsManager, athena, jdbcConnectionFactory, configOptions);
-    }
-
     public SaphanaMetadataHandler(DatabaseConnectionConfig databaseConnectionConfig, GenericJdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
             super(databaseConnectionConfig,

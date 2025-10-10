@@ -85,7 +85,7 @@ public class SaphanaMetadataHandlerTest
         this.secretsManager = Mockito.mock(SecretsManagerClient.class);
         this.athena = Mockito.mock(AthenaClient.class);
         Mockito.when(this.secretsManager.getSecretValue(Mockito.eq(GetSecretValueRequest.builder().secretId("testSecret").build()))).thenReturn(GetSecretValueResponse.builder().secretString("{\"username\": \"testUser\", \"password\": \"testPassword\"}").build());
-        this.saphanaMetadataHandler = new SaphanaMetadataHandler(databaseConnectionConfig, this.secretsManager, this.athena, this.jdbcConnectionFactory, com.google.common.collect.ImmutableMap.of());
+        this.saphanaMetadataHandler = new SaphanaMetadataHandler(databaseConnectionConfig, this.secretsManager, this.athena, this.jdbcConnectionFactory, com.google.common.collect.ImmutableMap.of(), new SaphanaJDBCCaseResolver(SAPHANA_NAME));
         this.federatedIdentity = Mockito.mock(FederatedIdentity.class);
         this.blockAllocator = Mockito.mock(BlockAllocator.class);
     }
@@ -381,6 +381,37 @@ public class SaphanaMetadataHandlerTest
         PARTITION_SCHEMA.getFields().forEach(expectedSchemaBuilder::addField);
         Schema expected = expectedSchemaBuilder.build();
         TableName inputTableName = new TableName("TESTSCHEMA", "TESTTABLE");
+        
+        // Mock schema case resolution queries - return single schema match
+        String[] schemaQuerySchema = {"SCHEMA_NAME"};
+        Object[][] schemaQueryValues = {{"TESTSCHEMA"}};
+        AtomicInteger schemaRowNumber = new AtomicInteger(-1);
+        ResultSet schemaResultSet = mockResultSet(schemaQuerySchema, schemaQueryValues, schemaRowNumber);
+
+        PreparedStatement schemaStmt = Mockito.mock(PreparedStatement.class);
+        Mockito.when(this.connection.prepareStatement("select * from SYS.SCHEMAS where lower(SCHEMA_NAME) = ?")).thenReturn(schemaStmt);
+        Mockito.when(schemaStmt.executeQuery()).thenReturn(schemaResultSet);
+        
+        // Mock table case resolution queries - return single table match
+        String[] tableQuerySchema = {"TABLE_NAME"};
+        Object[][] tableQueryValues = {{"TESTTABLE"}};
+        AtomicInteger tableRowNumber = new AtomicInteger(-1);
+        ResultSet tableResultSet = mockResultSet(tableQuerySchema, tableQueryValues, tableRowNumber);
+        
+        PreparedStatement tableStmt = Mockito.mock(PreparedStatement.class);
+        Mockito.when(this.connection.prepareStatement("select * from SYS.TABLES where SCHEMA_NAME = ? and lower(TABLE_NAME) = ?")).thenReturn(tableStmt);
+        Mockito.when(tableStmt.executeQuery()).thenReturn(tableResultSet);
+        
+        // Mock view query - return empty result
+        String[] viewQuerySchema = {"TABLE_NAME"};
+        Object[][] viewQueryValues = {};
+        AtomicInteger viewRowNumber = new AtomicInteger(-1);
+        ResultSet viewResultSet = mockResultSet(viewQuerySchema, viewQueryValues, viewRowNumber);
+        
+        PreparedStatement viewStmt = Mockito.mock(PreparedStatement.class);
+        Mockito.when(this.connection.prepareStatement("SELECT VIEW_NAME AS \"TABLE_NAME\" FROM SYS.VIEWS WHERE SCHEMA_NAME = ? AND lower(VIEW_NAME) = ?")).thenReturn(viewStmt);
+        Mockito.when(viewStmt.executeQuery()).thenReturn(viewResultSet);
+        
         Mockito.when(connection.getMetaData().getColumns("testCatalog", inputTableName.getSchemaName(), inputTableName.getTableName(), null)).thenReturn(resultSet);
         Mockito.when(connection.getCatalog()).thenReturn("testCatalog");
         GetTableResponse getTableResponse = this.saphanaMetadataHandler.doGetTable(
@@ -422,7 +453,7 @@ public class SaphanaMetadataHandlerTest
         Assert.assertEquals(expectedSplits, actualSplits);
     }
 
-    @Test(expected = SQLException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void doGetTableSQLException()
             throws Exception
     {
@@ -461,15 +492,45 @@ public class SaphanaMetadataHandlerTest
         String tableName = "testTable";
         TableName inputTableName = new TableName(schemaName, tableName + "@schemaCase=upper&tableCase=lower");
 
-        SaphanaMetadataHandler annotationMetadataHandler = new SaphanaMetadataHandler(databaseConnectionConfig,
+        SaphanaMetadataHandler saphanaMetadataHandlerWithAnnotation = new SaphanaMetadataHandler(databaseConnectionConfig,
             this.secretsManager, this.athena, this.jdbcConnectionFactory, 
             com.google.common.collect.ImmutableMap.of(), 
             new SaphanaJDBCCaseResolver(SAPHANA_NAME, CaseResolver.FederationSDKCasingMode.ANNOTATION));
 
+        // Mock schema case resolution queries - return single schema match
+        String[] schemaQuerySchema = {"SCHEMA_NAME"};
+        Object[][] schemaQueryValues = {{schemaName.toUpperCase()}};
+        AtomicInteger schemaRowNumber = new AtomicInteger(-1);
+        ResultSet schemaResultSet = mockResultSet(schemaQuerySchema, schemaQueryValues, schemaRowNumber);
+        
+        PreparedStatement schemaStmt = Mockito.mock(PreparedStatement.class);
+        Mockito.when(this.connection.prepareStatement("select * from SYS.SCHEMAS where lower(SCHEMA_NAME) = ?")).thenReturn(schemaStmt);
+        Mockito.when(schemaStmt.executeQuery()).thenReturn(schemaResultSet);
+
+        // Mock table case resolution queries - return single table match
+        String[] tableQuerySchema = {"TABLE_NAME"};
+        Object[][] tableQueryValues = {{tableName.toLowerCase()}};
+        AtomicInteger tableRowNumber = new AtomicInteger(-1);
+        ResultSet tableResultSet = mockResultSet(tableQuerySchema, tableQueryValues, tableRowNumber);
+        
+        PreparedStatement tableStmt = Mockito.mock(PreparedStatement.class);
+        Mockito.when(this.connection.prepareStatement("select * from SYS.TABLES where SCHEMA_NAME = ? and lower(TABLE_NAME) = ?")).thenReturn(tableStmt);
+        Mockito.when(tableStmt.executeQuery()).thenReturn(tableResultSet);
+        
+        // Mock view query - return empty result
+        String[] viewQuerySchema = {"TABLE_NAME"};
+        Object[][] viewQueryValues = {};
+        AtomicInteger viewRowNumber = new AtomicInteger(-1);
+        ResultSet viewResultSet = mockResultSet(viewQuerySchema, viewQueryValues, viewRowNumber);
+        
+        PreparedStatement viewStmt = Mockito.mock(PreparedStatement.class);
+        Mockito.when(this.connection.prepareStatement("SELECT VIEW_NAME AS \"TABLE_NAME\" FROM SYS.VIEWS WHERE SCHEMA_NAME = ? AND lower(VIEW_NAME) = ?")).thenReturn(viewStmt);
+        Mockito.when(viewStmt.executeQuery()).thenReturn(viewResultSet);
+
         Mockito.when(connection.getMetaData().getColumns("testCatalog", schemaName.toUpperCase(), tableName.toLowerCase(), null)).thenReturn(resultSet);
         Mockito.when(connection.getCatalog()).thenReturn("testCatalog");
 
-        GetTableResponse getTableResponse = annotationMetadataHandler.doGetTable(
+        GetTableResponse getTableResponse = saphanaMetadataHandlerWithAnnotation.doGetTable(
                 this.blockAllocator, new GetTableRequest(this.federatedIdentity, "testQueryId", "testCatalog", inputTableName, Collections.emptyMap()));
 
         Assert.assertEquals(expected, getTableResponse.getSchema());
