@@ -31,6 +31,7 @@ import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConsta
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.PORT;
 import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.SECRET_NAME;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class VerticaEnvironmentPropertiesTest {
     private Map<String, String> connectionProperties;
@@ -52,5 +53,53 @@ public class VerticaEnvironmentPropertiesTest {
 
         String expectedConnectionString = "vertica://jdbc:vertica://vertica-cluster-endpoint:1234/verticadb?${vertica-secret}";
         assertEquals(expectedConnectionString, verticaConnectionProperties.get(DEFAULT));
+    }
+
+    @Test
+    public void verticaConnectionPropertiesTest_EmptyConnectionProperties() {
+        Map<String, String> emptyProperties = new HashMap<>();
+        Map<String, String> result = verticaEnvironmentProperties.connectionPropertiesToEnvironment(emptyProperties);
+        String expectedConnectionString = "vertica://jdbc:vertica://null:null/null?";
+        assertEquals(expectedConnectionString, result.get(DEFAULT));
+        assertNotNull(result);
+    }
+
+    @Test
+    public void verticaConnectionPropertiesTest_MissingPort() {
+        connectionProperties.remove(PORT);
+        Map<String, String> result = verticaEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+        
+        assertNotNull(result);
+        String connectionString = result.get(DEFAULT);
+        String expectedConnectionString = "vertica://jdbc:vertica://vertica-cluster-endpoint:null/verticadb?${vertica-secret}";
+        assertEquals(expectedConnectionString, connectionString);
+        assertNotNull(connectionString);
+    }
+
+    @Test
+    public void verticaConnectionPropertiesTest_NullValues() {
+        connectionProperties.put(HOST, null);
+        connectionProperties.put(DATABASE, null);
+        Map<String, String> result = verticaEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+        String expectedConnectionString = "vertica://jdbc:vertica://null:1234/null?${vertica-secret}";
+        assertEquals(expectedConnectionString, result.get(DEFAULT));
+        assertNotNull(result);
+    }
+
+    @Test
+    public void verticaConnectionPropertiesTest_EmptyStringValues() {
+        connectionProperties.put(HOST, "");
+        connectionProperties.put(DATABASE, "");
+        connectionProperties.put(SECRET_NAME, "");
+        connectionProperties.put(PORT, "");
+        Map<String, String> result = verticaEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
+        String expectedConnectionString = "vertica://jdbc:vertica://:/?${}";
+        assertEquals(expectedConnectionString, result.get(DEFAULT));
+        assertNotNull(result);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void verticaConnectionPropertiesTest_NullConnectionProperties_ShouldThrowException() {
+        verticaEnvironmentProperties.connectionPropertiesToEnvironment(null);
     }
 }

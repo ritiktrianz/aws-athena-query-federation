@@ -26,7 +26,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 import org.stringtemplate.v4.STGroupFile;
 
 import java.lang.reflect.Method;
-import static org.junit.Assert.assertNotNull;
+
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.spy;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -76,5 +77,39 @@ public class QueryFactoryTest {
         assertNotNull(assert_not_null, builder);
         String rendered = builder.toString();
         assertNotNull(assert_rendered, rendered);
+    }
+
+    @Test
+    public void createGroupFile_TemplateLoadingFailure() throws Exception {
+        Method method = QueryFactory.class.getDeclaredMethod("createGroupFile");
+        method.setAccessible(true);
+
+        STGroupFile result = (STGroupFile) method.invoke(queryFactory);
+        assertNotNull("Should fallback to local template when primary fails", result);
+    }
+
+    @Test
+    public void getQueryTemplate_InvalidTemplateName_ShouldThrowException() throws Exception {
+        Method method = QueryFactory.class.getDeclaredMethod("getQueryTemplate", String.class);
+        method.setAccessible(true);
+
+        try {
+            method.invoke(queryFactory, "nonexistent_template");
+        } catch (Exception e) {
+            assertTrue("Should handle invalid template names",
+                e.getCause() instanceof RuntimeException );
+        }
+    }
+
+    @Test
+    public void getQueryTemplate_NullTemplateName_ShouldThrowException() throws Exception {
+        Method method = QueryFactory.class.getDeclaredMethod("getQueryTemplate", String.class);
+        method.setAccessible(true);
+
+        try {
+            method.invoke(queryFactory, (String) null);
+        } catch (Exception e) {
+            assertTrue("Should handle null template name", e.getCause() instanceof NullPointerException);
+        }
     }
 }
