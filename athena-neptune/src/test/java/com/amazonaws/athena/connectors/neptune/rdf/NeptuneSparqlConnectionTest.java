@@ -42,7 +42,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -59,6 +58,11 @@ public class NeptuneSparqlConnectionTest {
     private static final String TEST_ENDPOINT = "localhost";
     private static final String TEST_PORT = "8182";
     private static final String TEST_REGION = "us-west-2";
+    public static final String SUBJECT = "subject";
+    public static final String BOOL_VAR = "boolVar";
+    public static final String DATE_VAR = "dateVar";
+    private static final String EXAMPLE_RESOURCE = "http://example.org/resource";
+    private static final String SPARQL_QUERY = "SELECT * WHERE { ?s ?p ?o }";
 
     @Mock
     private RepositoryConnection mockConnection;
@@ -79,7 +83,7 @@ public class NeptuneSparqlConnectionTest {
 
     @Before
     public void setup() {
-        connection = new NeptuneSparqlConnection("localhost", "8182", false, "us-west-2");
+        connection = new NeptuneSparqlConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION);
         connection.connection = mockConnection;
         connection.neptuneSparqlRepo = mockRepo;
         connection.queryResult = mockQueryResult;
@@ -88,13 +92,13 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void testConstructorWithoutIAMAuth() {
+    public void constructor_WithoutIAMAuth_CreatesConnection() {
         NeptuneSparqlConnection nonIamConnection = new NeptuneSparqlConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION);
         assertNotNull(nonIamConnection);
     }
 
     @Test
-    public void testHasNext() {
+    public void hasNext_WithQueryResult_ReturnsCorrectBoolean() {
         when(mockQueryResult.hasNext()).thenReturn(true);
         assertTrue(connection.hasNext());
 
@@ -103,88 +107,84 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void testNextWithIRIValue() {
+    public void next_WithIRIValue_ReturnsCorrectValue() {
         Set<String> bindingNames = new HashSet<>();
-        bindingNames.add("subject");
+        bindingNames.add(SUBJECT);
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
-        when(mockBindingSet.getValue("subject")).thenReturn(mockIRI);
-        when(mockIRI.stringValue()).thenReturn("http://example.org/resource");
+        when(mockBindingSet.getValue(SUBJECT)).thenReturn(mockIRI);
+        when(mockIRI.stringValue()).thenReturn(EXAMPLE_RESOURCE);
 
         Map<String, Object> result = connection.next();
         assertNotNull(result);
-        assertEquals("http://example.org/resource", result.get("subject"));
+        assertEquals(EXAMPLE_RESOURCE, result.get(SUBJECT));
     }
 
     @Test
-    public void testNextWithLiteralTypes()  {
-       try{
-           when(mockQueryResult.next()).thenReturn(mockBindingSet);
+    public void next_WithLiteralTypes_HandlesDifferentTypes() throws Exception {
+        when(mockQueryResult.next()).thenReturn(mockBindingSet);
         Set<String> bindingNames = new HashSet<>();
-        bindingNames.add("boolVar");
-        bindingNames.add("dateVar");
+        bindingNames.add(BOOL_VAR);
+        bindingNames.add(DATE_VAR);
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
 
         // Mock boolean literal
         Literal boolLiteral = mock(Literal.class);
         when(boolLiteral.getDatatype()).thenReturn(XSD.BOOLEAN);
         when(boolLiteral.booleanValue()).thenReturn(true);
-        when(mockBindingSet.getValue("boolVar")).thenReturn(boolLiteral);
+        when(mockBindingSet.getValue(BOOL_VAR)).thenReturn(boolLiteral);
 
         // Mock date literal
         Literal dateLiteral = mock(Literal.class);
-           when(dateLiteral.getDatatype()).thenReturn(XSD.DATE);
+        when(dateLiteral.getDatatype()).thenReturn(XSD.DATE);
         XMLGregorianCalendar calendar = DatatypeFactory.newInstance().newXMLGregorianCalendar(new GregorianCalendar());
         when(dateLiteral.calendarValue()).thenReturn(calendar);
-        when(mockBindingSet.getValue("dateVar")).thenReturn(dateLiteral);
+        when(mockBindingSet.getValue(DATE_VAR)).thenReturn(dateLiteral);
 
         Map<String, Object> result = connection.next();
-        assertTrue((Boolean) result.get("boolVar"));
-        assertNotNull(result.get("dateVar"));
-    } catch (Exception e)
-       {
-        fail("Unexpected exception: " + e.getMessage());
-    }}
+        assertTrue((Boolean) result.get(BOOL_VAR));
+        assertNotNull(result.get(DATE_VAR));
+    }
 
     @Test
-    public void testRunQuery() {
+    public void runQuery_WithValidQuery_ExecutesQuery() {
         when(mockConnection.prepareTupleQuery(any(), anyString())).thenReturn(mockTupleQuery);
         when(mockTupleQuery.evaluate()).thenReturn(mockQueryResult);
 
-        connection.runQuery("SELECT * WHERE { ?s ?p ?o }");
+        connection.runQuery(SPARQL_QUERY);
         
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o }");
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, SPARQL_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void testSafeCloseRepo() {
+    public void safeCloseRepo_WithOpenConnection_ClosesConnection() {
         connection.safeCloseRepo();
         verify(mockQueryResult).close();
     }
 
     @Test
-    public void testNextWithNullValue() {
+    public void next_WithNullValue_HandlesNullValue() {
         Set<String> bindingNames = new HashSet<>();
-        bindingNames.add("subject");
+        bindingNames.add(SUBJECT);
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
-        when(mockBindingSet.getValue("subject")).thenReturn(null);
+        when(mockBindingSet.getValue(SUBJECT)).thenReturn(null);
 
         Map<String, Object> result = connection.next();
         assertNotNull(result);
         // The method should return an empty map when all values are null
         // but it might still contain the key with null value
-        assertTrue(result.isEmpty() || result.containsKey("subject"));
+        assertTrue(result.isEmpty() || result.containsKey(SUBJECT));
     }
 
     @Test
-    public void testNextWithStringValue() {
+    public void next_WithStringValue_ReturnsCorrectValue() {
         Set<String> bindingNames = new HashSet<>();
-        bindingNames.add("subject");
+        bindingNames.add(SUBJECT);
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
-        when(mockBindingSet.getValue("subject")).thenReturn(mockLiteral);
+        when(mockBindingSet.getValue(SUBJECT)).thenReturn(mockLiteral);
         when(mockLiteral.getDatatype()).thenReturn(XSD.LONG);
         Map<String, Object> result = connection.next();
         assertNotNull(result);
-        assertEquals(0L, result.get("subject"));
+        assertEquals(0L, result.get(SUBJECT));
     }
 } 

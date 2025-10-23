@@ -41,6 +41,7 @@ public class NeptuneSparqlRepositoryTest {
 
     private static final String ENDPOINT = "http://example.com";
     private static final String REGION = "us-west-2";
+    private static final String EMPTY_REGION = "";
 
     @Before
     public void setup() {
@@ -60,8 +61,8 @@ public class NeptuneSparqlRepositoryTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void neptuneSparqlRepository_WithEmptyRegion_ThrowsIllegalArgumentException() throws NeptuneSigV4SignerException {
-        new NeptuneSparqlRepository(ENDPOINT, mockCredentialsProvider, "");
+    public void neptuneSparqlRepository_WithEmptyRegion_ThrowsIllegalArgumentException() throws Exception {
+        new NeptuneSparqlRepository(ENDPOINT, mockCredentialsProvider, EMPTY_REGION);
     }
 
     @Test

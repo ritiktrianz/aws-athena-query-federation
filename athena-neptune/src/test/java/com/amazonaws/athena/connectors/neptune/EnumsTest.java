@@ -25,28 +25,37 @@ import static org.junit.Assert.assertEquals;
 
 public class EnumsTest {
 
+    private static final int GRAPH_TYPE_COUNT = 2;
+    private static final int TABLE_SCHEMA_META_TYPE_COUNT = 3;
+    private static final String PROPERTYGRAPH_VALUE = "PROPERTYGRAPH";
+    private static final String RDF_VALUE = "RDF";
+    private static final String VERTEX_VALUE = "VERTEX";
+    private static final String EDGE_VALUE = "EDGE";
+    private static final String VIEW_VALUE = "VIEW";
+    private static final String INVALID_VALUE = "INVALID";
+
     @Test
     public void graphTypeValues_ValidEnumValues_ReturnsCorrectEnumInstances() {
-        assertEquals(2, Enums.GraphType.values().length);
-        assertEquals(Enums.GraphType.PROPERTYGRAPH, Enums.GraphType.valueOf("PROPERTYGRAPH"));
-        assertEquals(Enums.GraphType.RDF, Enums.GraphType.valueOf("RDF"));
+        assertEquals(GRAPH_TYPE_COUNT, Enums.GraphType.values().length);
+        assertEquals(Enums.GraphType.PROPERTYGRAPH, Enums.GraphType.valueOf(PROPERTYGRAPH_VALUE));
+        assertEquals(Enums.GraphType.RDF, Enums.GraphType.valueOf(RDF_VALUE));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void graphTypeValueOf_InvalidEnumValue_ThrowsIllegalArgumentException() {
-        Enums.GraphType.valueOf("INVALID");
+        Enums.GraphType.valueOf(INVALID_VALUE);
     }
 
     @Test
     public void tableSchemaMetaTypeValues_ValidEnumValues_ReturnsCorrectEnumInstances() {
-        assertEquals(3, Enums.TableSchemaMetaType.values().length);
-        assertEquals(Enums.TableSchemaMetaType.VERTEX, Enums.TableSchemaMetaType.valueOf("VERTEX"));
-        assertEquals(Enums.TableSchemaMetaType.EDGE, Enums.TableSchemaMetaType.valueOf("EDGE"));
-        assertEquals(Enums.TableSchemaMetaType.VIEW, Enums.TableSchemaMetaType.valueOf("VIEW"));
+        assertEquals(TABLE_SCHEMA_META_TYPE_COUNT, Enums.TableSchemaMetaType.values().length);
+        assertEquals(Enums.TableSchemaMetaType.VERTEX, Enums.TableSchemaMetaType.valueOf(VERTEX_VALUE));
+        assertEquals(Enums.TableSchemaMetaType.EDGE, Enums.TableSchemaMetaType.valueOf(EDGE_VALUE));
+        assertEquals(Enums.TableSchemaMetaType.VIEW, Enums.TableSchemaMetaType.valueOf(VIEW_VALUE));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void tableSchemaMetaTypeValueOf_InvalidEnumValue_ThrowsIllegalArgumentException() {
-        Enums.TableSchemaMetaType.valueOf("INVALID");
+        Enums.TableSchemaMetaType.valueOf(INVALID_VALUE);
     }
 } 

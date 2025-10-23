@@ -56,6 +56,14 @@ public class SparqlRowWriterTest {
     private GeneratedRowWriter.RowWriterBuilder mockRowWriterBuilder;
     private Map<String, Object> testRow;
     private static final String TEST_FIELD_NAME = "testField";
+    private static final String DATE_FORMAT = "EEE MMM dd HH:mm:ss z yyyy";
+    private static final int TEST_INT_VALUE = 42;
+    private static final long TEST_LONG_VALUE = 42L;
+    private static final float TEST_FLOAT_VALUE = 42.5f;
+    private static final double TEST_DOUBLE_VALUE = 42.5d;
+    private static final String BIG_INT_STRING = "42";
+    private static final String BIG_DEC_STRING = "42.5";
+    private static final long MILLIS_1000 = 1000L;
 
     @Before
     public void setup() {
@@ -65,58 +73,58 @@ public class SparqlRowWriterTest {
     @Test
     public void extractValue_WithIntegerValue_ReturnsIntegerObject() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
-        testRow.put(TEST_FIELD_NAME, 42);
+        testRow.put(TEST_FIELD_NAME, TEST_INT_VALUE);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, Integer.class);
-        assertEquals(42, result);
+        assertEquals(TEST_INT_VALUE, result);
     }
 
     @Test
     public void extractValue_WithBigIntegerForIntegerField_ReturnsConvertedInteger() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
-        BigInteger bigInt = new BigInteger("42");
+        BigInteger bigInt = new BigInteger(BIG_INT_STRING);
         testRow.put(TEST_FIELD_NAME, bigInt);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, Integer.class);
-        assertEquals(42, (result));
+        assertEquals(TEST_INT_VALUE, (result));
     }
 
     @Test
     public void extractValue_WithLongValue_ReturnsLongObject() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
-        testRow.put(TEST_FIELD_NAME, 42L);
+        testRow.put(TEST_FIELD_NAME, TEST_LONG_VALUE);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, Long.class);
-        assertEquals(42L, result);
+        assertEquals(TEST_LONG_VALUE, result);
     }
 
     @Test
     public void extractValue_WithBigIntegerForLongField_ReturnsConvertedLong() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
-        BigInteger bigInt = new BigInteger("42");
+        BigInteger bigInt = new BigInteger(BIG_INT_STRING);
         testRow.put(TEST_FIELD_NAME, bigInt);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, Long.class);
-        assertEquals(42L, result);
+        assertEquals(TEST_LONG_VALUE, result);
     }
 
     @Test
     public void extractValue_WithFloatValue_ReturnsFloatObject() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
-        testRow.put(TEST_FIELD_NAME, 42.5f);
+        testRow.put(TEST_FIELD_NAME, TEST_FLOAT_VALUE);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, Float.class);
-        assertEquals(42.5f, result);
+        assertEquals(TEST_FLOAT_VALUE, result);
     }
 
     @Test
     public void extractValue_WithBigDecimalForDoubleField_ReturnsConvertedDouble() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
-        BigDecimal bigDec = new BigDecimal("42.5");
+        BigDecimal bigDec = new BigDecimal(BIG_DEC_STRING);
         testRow.put(TEST_FIELD_NAME, bigDec);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, Double.class);
-        assertEquals(42.5d, result);
+        assertEquals(TEST_DOUBLE_VALUE, result);
     }
 
     @Test
@@ -133,13 +141,13 @@ public class SparqlRowWriterTest {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), null);
         
         GregorianCalendar cal = new GregorianCalendar();
-        cal.setTimeInMillis(1000L);
+        cal.setTimeInMillis(MILLIS_1000);
         XMLGregorianCalendar xmlCal = DatatypeFactory.newInstance().newXMLGregorianCalendar(cal);
         testRow.put(TEST_FIELD_NAME, xmlCal);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, java.util.Date.class);
         Assert.assertNotNull(result);
-        assertEquals(1000L, new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.ENGLISH).parse(result.toString()).getTime());
+        assertEquals(MILLIS_1000, new SimpleDateFormat(DATE_FORMAT, Locale.ENGLISH).parse(result.toString()).getTime());
     }
 
     @Test
@@ -154,7 +162,7 @@ public class SparqlRowWriterTest {
     @Test(expected = ClassCastException.class)
     public void extractValue_LongToInt() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
-        testRow.put(TEST_FIELD_NAME, 42L);
+        testRow.put(TEST_FIELD_NAME, TEST_LONG_VALUE);
         
         SparqlRowWriter.extractValue(testRow, field, Integer.class);
     }
@@ -162,7 +170,7 @@ public class SparqlRowWriterTest {
     @Test(expected = ClassCastException.class)
     public void extractValue_IntToLong() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
-        testRow.put(TEST_FIELD_NAME, 42);
+        testRow.put(TEST_FIELD_NAME, TEST_INT_VALUE);
         
         SparqlRowWriter.extractValue(testRow, field, Long.class);
     }
@@ -170,7 +178,7 @@ public class SparqlRowWriterTest {
     @Test(expected = ClassCastException.class)
     public void extractValue_DoubleToFloat() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
-        testRow.put(TEST_FIELD_NAME, 42.5d);
+        testRow.put(TEST_FIELD_NAME, TEST_DOUBLE_VALUE);
         
         SparqlRowWriter.extractValue(testRow, field, Float.class);
     }
@@ -178,7 +186,7 @@ public class SparqlRowWriterTest {
     @Test(expected = ClassCastException.class)
     public void extractValue_FloatToDouble() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
-        testRow.put(TEST_FIELD_NAME, 42.5f);
+        testRow.put(TEST_FIELD_NAME, TEST_FLOAT_VALUE);
         
         SparqlRowWriter.extractValue(testRow, field, Double.class);
     }

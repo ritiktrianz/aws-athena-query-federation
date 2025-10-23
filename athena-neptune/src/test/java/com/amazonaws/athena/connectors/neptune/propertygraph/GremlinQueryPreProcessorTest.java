@@ -38,6 +38,13 @@ import static org.mockito.Mockito.when;
 
 public class GremlinQueryPreProcessorTest {
 
+    public static final String BOOL_FIELD = "boolField";
+    public static final String INT_FIELD = "intField";
+    public static final String LONG_FIELD = "longField";
+    public static final String FLOAT_FIELD = "floatField";
+    public static final String DOUBLE_FIELD = "doubleField";
+    public static final String STRING_FIELD = "stringField";
+    public static final String TEST_VALUE = "test";
     @Mock
     private GraphTraversal<Element, Element> mockTraversal;
 
@@ -49,103 +56,103 @@ public class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    public void testBooleanEqualTo() {
-        when(mockTraversal.has("boolField", P.eq(true))).thenReturn(mockTraversal);
-        
+    public void generateGremlinQueryPart_WithBooleanFieldAndEqualToOperator_AppliesCorrectPredicate() {
+        when(mockTraversal.has(BOOL_FIELD, P.eq(true))).thenReturn(mockTraversal);
+
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
-            "boolField",
+                BOOL_FIELD,
             "true",
             new ArrowType.Bool(),
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.EQUALTO
         );
-        
-        verify(mockTraversal).has("boolField", P.eq(true));
+
+        verify(mockTraversal).has(BOOL_FIELD, P.eq(true));
     }
 
     @Test
-    public void testIntegerGreaterThan() {
-        when(mockTraversal.has("intField", P.gt(42))).thenReturn(mockTraversal);
-        
+    public void generateGremlinQueryPart_WithIntegerFieldAndGreaterThanOperator_AppliesCorrectPredicate() {
+        when(mockTraversal.has(INT_FIELD, P.gt(42))).thenReturn(mockTraversal);
+
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
-            "intField",
+                INT_FIELD,
             "42",
             new ArrowType.Int(32, true),
             Marker.Bound.ABOVE,
             GremlinQueryPreProcessor.Operator.GREATERTHAN
         );
-        
-        verify(mockTraversal).has("intField", P.gt(42));
+
+        verify(mockTraversal).has(INT_FIELD, P.gt(42));
     }
 
     @Test
-    public void testLongLessThan() {
-        when(mockTraversal.has("longField", P.lt(1000L))).thenReturn(mockTraversal);
-        
+    public void generateGremlinQueryPart_WithLongFieldAndLessThanOperator_AppliesCorrectPredicate() {
+        when(mockTraversal.has(LONG_FIELD, P.lt(1000L))).thenReturn(mockTraversal);
+
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
-            "longField",
+                LONG_FIELD,
             "1000",
             new ArrowType.Int(64, true),
             Marker.Bound.ABOVE,
             GremlinQueryPreProcessor.Operator.LESSTHAN
         );
-        
-        verify(mockTraversal).has("longField", P.lt(1000L));
+
+        verify(mockTraversal).has(LONG_FIELD, P.lt(1000L));
     }
 
     @Test
-    public void testFloatGreaterThanEqual() {
-        when(mockTraversal.has("floatField", P.gte(3.14f))).thenReturn(mockTraversal);
-        
+    public void generateGremlinQueryPart_WithFloatFieldAndGreaterThanEqualOperator_AppliesCorrectPredicate() {
+        when(mockTraversal.has(FLOAT_FIELD, P.gte(3.14f))).thenReturn(mockTraversal);
+
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
-            "floatField",
+                FLOAT_FIELD,
             "3.14",
             new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE),
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.GREATERTHAN
         );
-        
-        verify(mockTraversal).has("floatField", P.gte(3.14f));
+
+        verify(mockTraversal).has(FLOAT_FIELD, P.gte(3.14f));
     }
 
     @Test
-    public void testDoubleLessThanEqual() {
-        when(mockTraversal.has("doubleField", P.lte(2.718))).thenReturn(mockTraversal);
-        
+    public void generateGremlinQueryPart_WithDoubleFieldAndLessThanEqualOperator_AppliesCorrectPredicate() {
+        when(mockTraversal.has(DOUBLE_FIELD, P.lte(2.718))).thenReturn(mockTraversal);
+
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
-            "doubleField",
+                DOUBLE_FIELD,
             "2.718",
             new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE),
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.LESSTHAN
         );
-        
-        verify(mockTraversal).has("doubleField", P.lte(2.718));
+
+        verify(mockTraversal).has(DOUBLE_FIELD, P.lte(2.718));
     }
 
     @Test
-    public void testStringNotEqual() {
-        when(mockTraversal.has("stringField", P.neq("test"))).thenReturn(mockTraversal);
-        
+    public void generateGremlinQueryPart_WithStringFieldAndNotEqualOperator_AppliesCorrectPredicate() {
+        when(mockTraversal.has(STRING_FIELD, P.neq(TEST_VALUE))).thenReturn(mockTraversal);
+
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
-            "stringField",
-            "test",
+                STRING_FIELD,
+            TEST_VALUE,
             new ArrowType.Utf8(),
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.NOTEQUALTO
         );
-        
-        verify(mockTraversal).has("stringField", P.neq("test"));
+
+        verify(mockTraversal).has(STRING_FIELD, P.neq(TEST_VALUE));
     }
 
     @Test
-    public void testInVertexIdGreaterThan() {
+    public void generateGremlinQueryPart_WithInVertexIdAndGreaterThanOperator_UsesWhereClause() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.IN.toString().toLowerCase(),
@@ -154,12 +161,12 @@ public class GremlinQueryPreProcessorTest {
             Marker.Bound.ABOVE,
             GremlinQueryPreProcessor.Operator.GREATERTHAN
         );
-        
+
         verify(mockTraversal).where(any(GraphTraversal.class));
     }
 
     @Test
-    public void testOutVertexIdLessThan() {
+    public void generateGremlinQueryPart_WithOutVertexIdAndLessThanOperator_UsesWhereClause() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.OUT.toString().toLowerCase(),
@@ -168,12 +175,12 @@ public class GremlinQueryPreProcessorTest {
             Marker.Bound.ABOVE,
             GremlinQueryPreProcessor.Operator.LESSTHAN
         );
-        
+
         verify(mockTraversal).where(any(GraphTraversal.class));
     }
 
     @Test
-    public void testElementIdEqual() {
+    public void generateGremlinQueryPart_WithElementIdAndEqualOperator_UsesWhereClause() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.ID.toString().toLowerCase(),
@@ -182,12 +189,12 @@ public class GremlinQueryPreProcessorTest {
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.EQUALTO
         );
-        
+
         verify(mockTraversal).where(any(GraphTraversal.class));
     }
 
     @Test
-    public void testInVertexIdGreaterThanEqual() {
+    public void generateGremlinQueryPart_WithInVertexIdAndGreaterThanEqualOperator_UsesWhereClause() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.IN.toString().toLowerCase(),
@@ -196,12 +203,12 @@ public class GremlinQueryPreProcessorTest {
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.GREATERTHAN
         );
-        
+
         verify(mockTraversal).where(any(GraphTraversal.class));
     }
 
     @Test
-    public void testOutVertexIdLessThanEqual() {
+    public void generateGremlinQueryPart_WithOutVertexIdAndLessThanEqualOperator_UsesWhereClause() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.OUT.toString().toLowerCase(),
@@ -210,12 +217,12 @@ public class GremlinQueryPreProcessorTest {
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.LESSTHAN
         );
-        
+
         verify(mockTraversal).where(any(GraphTraversal.class));
     }
 
     @Test
-    public void testElementIdNotEqual() {
+    public void generateGremlinQueryPart_WithElementIdAndNotEqualOperator_UsesWhereClause() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.ID.toString().toLowerCase(),
@@ -224,7 +231,7 @@ public class GremlinQueryPreProcessorTest {
             Marker.Bound.EXACTLY,
             GremlinQueryPreProcessor.Operator.NOTEQUALTO
         );
-        
+
         verify(mockTraversal).where(any(GraphTraversal.class));
     }
 } 

@@ -19,6 +19,7 @@
  */
 package com.amazonaws.athena.connectors.neptune;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -41,41 +42,52 @@ import static org.junit.Assert.assertNull;
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneEnvironmentPropertiesTest {
 
+    private static final String TEST_ENDPOINT = "test-endpoint";
+    private static final String TEST_PORT = "8182";
+    private static final String TEST_CLUSTER_ID = "test-cluster-id";
+    private static final String PROPERTYGRAPH_TYPE = "propertygraph";
+    private static final String NULL_VALUE = null;
+
+    private NeptuneEnvironmentProperties properties;
+    private Map<String, String> connectionProperties;
+
+    @Before
+    public void setUp() {
+        properties = new NeptuneEnvironmentProperties();
+        connectionProperties = new HashMap<>();
+    }
+
     @Test
-    public void testConnectionPropertiesToEnvironment() {
+    public void connectionPropertiesToEnvironment_WithValidProperties_ReturnsMappedEnvironment() {
         // Create input connection properties
-        Map<String, String> connectionProperties = new HashMap<>();
-        connectionProperties.put(HOST, "test-endpoint");
-        connectionProperties.put(PORT, "8182");
-        connectionProperties.put(CFG_ClUSTER_RES_ID, "test-cluster-id");
-        connectionProperties.put(GRAPH_TYPE, "propertygraph");
+        connectionProperties.put(HOST, TEST_ENDPOINT);
+        connectionProperties.put(PORT, TEST_PORT);
+        connectionProperties.put(CFG_ClUSTER_RES_ID, TEST_CLUSTER_ID);
+        connectionProperties.put(GRAPH_TYPE, PROPERTYGRAPH_TYPE);
 
         // Create instance and call method
-        NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties();
         Map<String, String> result = properties.connectionPropertiesToEnvironment(connectionProperties);
 
         // Verify results
         assertNotNull("Result should not be null", result);
-        assertEquals("Endpoint should match", "test-endpoint", result.get(CFG_ENDPOINT));
-        assertEquals("Port should match", "8182", result.get(CFG_PORT));
+        assertEquals("Endpoint should match", TEST_ENDPOINT, result.get(CFG_ENDPOINT));
+        assertEquals("Port should match", TEST_PORT, result.get(CFG_PORT));
     }
 
     @Test
-    public void testConnectionPropertiesToEnvironment_WithNullValues() {
+    public void connectionPropertiesToEnvironment_WithNullValues_HandlesNullValuesCorrectly() {
         // Create input connection properties with null values
-        Map<String, String> connectionProperties = new HashMap<>();
-        connectionProperties.put(HOST, null);
-        connectionProperties.put(PORT, null);
-        connectionProperties.put(CLUSTER_RES_ID, null);
-        connectionProperties.put(GRAPH_TYPE, null);
+        connectionProperties.put(HOST, NULL_VALUE);
+        connectionProperties.put(PORT, NULL_VALUE);
+        connectionProperties.put(CLUSTER_RES_ID, NULL_VALUE);
+        connectionProperties.put(GRAPH_TYPE, NULL_VALUE);
 
         // Create environment map with null values
         Map<String, String> environment = new HashMap<>();
-        environment.put(CLUSTER_RES_ID, null);
-        environment.put(GRAPH_TYPE, null);
+        environment.put(CLUSTER_RES_ID, NULL_VALUE);
+        environment.put(GRAPH_TYPE, NULL_VALUE);
 
         // Create instance and call method
-        NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties();
         Map<String, String> result = properties.connectionPropertiesToEnvironment(connectionProperties);
 
         // Verify results
