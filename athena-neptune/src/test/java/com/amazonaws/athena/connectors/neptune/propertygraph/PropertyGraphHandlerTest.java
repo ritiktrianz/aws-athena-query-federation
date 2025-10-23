@@ -56,7 +56,6 @@ import java.util.Map;
 
 import static com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature.SCHEMA_FUNCTION_NAME;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
@@ -67,7 +66,27 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class PropertyGraphHandlerTest {
+public class PropertyGraphHandlerTest
+{
+    private static final String VERTEX_TYPE = "VERTEX";
+    private static final String EDGE_TYPE = "EDGE";
+    private static final String VIEW_TYPE = "VIEW";
+    private static final String TEST_DB = "testDb";
+    private static final String TEST_TABLE = "testTable";
+    private static final String PERSON_LABEL = "person";
+    private static final String KNOWS_LABEL = "knows";
+    private static final String CUSTOM_LABEL = "customLabel";
+    private static final String COUNT_FIELD = "count";
+    private static final String ID_FIELD = "id";
+    private static final String LABEL_FIELD = "label";
+    private static final String VERTEX_ID = "1";
+    private static final String EDGE_ID = "1";
+    private static final String GREMLIN_COUNT_QUERY = "g.V().count()";
+    private static final String GREMLIN_QUERY = "g.V().count()";
+    private static final String VALUE_MAP_TYPE = "valueMap";
+    private static final String SYSTEM_TRAVERSE = "SYSTEM.TRAVERSE";
+    private static final String SYSTEM_QUERY = "SYSTEM.QUERY";
+    private static final String INVALID_QUERY = "invalid.query()";
 
     @Mock
     private NeptuneConnection neptuneConnection;
@@ -92,10 +111,11 @@ public class PropertyGraphHandlerTest {
     private Map<String, String> customMetadata;
 
     @Before
-    public void setUp() {
+    public void setUp()
+    {
         MockitoAnnotations.openMocks(this);
         handler = new PropertyGraphHandler(neptuneConnection);
-        
+
         // Setup common mocks
         when(neptuneConnection.getNeptuneClientConnection()).thenReturn(client);
         when(neptuneConnection.getTraversalSource(any())).thenReturn(graphTraversalSource);
@@ -109,16 +129,16 @@ public class PropertyGraphHandlerTest {
 
         // Setup schema
         List<Field> fields = new ArrayList<>();
-        fields.add(new Field("id", FieldType.nullable(new ArrowType.Utf8()), null));
-        fields.add(new Field("label", FieldType.nullable(new ArrowType.Utf8()), null));
-        
+        fields.add(new Field(ID_FIELD, FieldType.nullable(new ArrowType.Utf8()), null));
+        fields.add(new Field(LABEL_FIELD, FieldType.nullable(new ArrowType.Utf8()), null));
+
         customMetadata = new HashMap<>();
-        customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, "VERTEX"); // Set default type
+        customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, VERTEX_TYPE); // Set default type
         schema = new Schema(fields, customMetadata);
-        
+
         when(recordsRequest.getSchema()).thenReturn(schema);
-        when(recordsRequest.getTableName()).thenReturn(new TableName("testDb", "testTable"));
-        
+        when(recordsRequest.getTableName()).thenReturn(new TableName(TEST_DB, TEST_TABLE));
+
         // Setup constraints with empty maps and lists
         Map<String, ValueSet> constraintsMap = new HashMap<>();
         Constraints constraints = new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), 0, Collections.emptyMap(), null);
@@ -133,261 +153,240 @@ public class PropertyGraphHandlerTest {
     }
 
     @Test
-    public void testVertexQuery() {
-        try {
-            // Setup vertex specific mocks
-            Map<String, Object> vertexData = new HashMap<>();
-            vertexData.put(T.id.toString(), "1");
-            vertexData.put(T.label.toString(), "person");
-            when(graphTraversal.hasNext()).thenReturn(true, false);
-            when(graphTraversal.next()).thenReturn(vertexData);
+    public void executeQuery_WithVertexType_ProcessesVertexData() throws Exception
+    {
+        // Setup vertex specific mocks
+        Map<String, Object> vertexData = new HashMap<>();
+        vertexData.put(T.id.toString(), VERTEX_ID);
+        vertexData.put(T.label.toString(), PERSON_LABEL);
+        when(graphTraversal.hasNext()).thenReturn(true, false);
+        when(graphTraversal.next()).thenReturn(vertexData);
 
-            // Execute test
-            handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
+        // Execute test
+        handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
 
-            // Verify
-            verify(spiller, times(1)).writeRows(any());
-            verify(graphTraversal, atLeastOnce()).hasNext();
-            verify(graphTraversal, atLeastOnce()).next();
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        // Verify
+        verify(spiller, times(1)).writeRows(any());
+        verify(graphTraversal, atLeastOnce()).hasNext();
+        verify(graphTraversal, atLeastOnce()).next();
     }
 
     @Test
-    public void testEdgeQuery() {
-        try {
-            // Setup edge specific mocks
-            customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, "EDGE");
-            Schema edgeSchema = new Schema(schema.getFields(), new HashMap<>(customMetadata));
-            when(recordsRequest.getSchema()).thenReturn(edgeSchema);
-            Map<String, Object> edgeData = new HashMap<>();
-            edgeData.put(T.id.toString(), "1");
-            edgeData.put(T.label.toString(), "knows");
-            when(graphTraversal.hasNext()).thenReturn(true, false);
-            when(graphTraversal.next()).thenReturn(edgeData);
+    public void executeQuery_WithEdgeType_ProcessesEdgeData() throws Exception
+    {
+        // Setup edge specific mocks
+        customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, EDGE_TYPE);
+        Schema edgeSchema = new Schema(schema.getFields(), new HashMap<>(customMetadata));
+        when(recordsRequest.getSchema()).thenReturn(edgeSchema);
+        Map<String, Object> edgeData = new HashMap<>();
+        edgeData.put(T.id.toString(), EDGE_ID);
+        edgeData.put(T.label.toString(), KNOWS_LABEL);
+        when(graphTraversal.hasNext()).thenReturn(true, false);
+        when(graphTraversal.next()).thenReturn(edgeData);
 
-            // Execute test
-            handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
+        // Execute test
+        handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
 
-            // Verify
-            verify(spiller, times(1)).writeRows(any());
-            verify(graphTraversal, atLeastOnce()).hasNext();
-            verify(graphTraversal, atLeastOnce()).next();
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        // Verify
+        verify(spiller, times(1)).writeRows(any());
+        verify(graphTraversal, atLeastOnce()).hasNext();
+        verify(graphTraversal, atLeastOnce()).next();
     }
 
     @Test
-    public void testViewQuery() {
-        try {
-            // Setup view specific mocks
-            customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, "VIEW");
-            customMetadata.put(Constants.SCHEMA_QUERY, "g.V().count()");
+    public void executeQuery_WithViewType_ProcessesViewData() throws Exception
+    {
+        // Setup view specific mocks
+        customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, VIEW_TYPE);
+        customMetadata.put(Constants.SCHEMA_QUERY, GREMLIN_COUNT_QUERY);
 
-            // Add count field to schema
-            List<Field> fields = new ArrayList<>();
-            fields.add(new Field("count", FieldType.nullable(new ArrowType.Int(64, true)), null));
-            Schema viewSchema = new Schema(fields, customMetadata);
-            when(recordsRequest.getSchema()).thenReturn(viewSchema);
+        // Add count field to schema
+        List<Field> fields = new ArrayList<>();
+        fields.add(new Field(COUNT_FIELD, FieldType.nullable(new ArrowType.Int(64, true)), null));
+        Schema viewSchema = new Schema(fields, customMetadata);
+        when(recordsRequest.getSchema()).thenReturn(viewSchema);
 
-            Result mockResult = mock(Result.class);
-            when(mockResult.getObject()).thenReturn(42L);
+        Result mockResult = mock(Result.class);
+        when(mockResult.getObject()).thenReturn(42L);
 
-            @SuppressWarnings("unchecked")
-            Iterator<Result> resultIterator = mock(Iterator.class);
-            when(resultIterator.hasNext()).thenReturn(true, false);
-            when(resultIterator.next()).thenReturn(mockResult);
+        @SuppressWarnings("unchecked")
+        Iterator<Result> resultIterator = mock(Iterator.class);
+        when(resultIterator.hasNext()).thenReturn(true, false);
+        when(resultIterator.next()).thenReturn(mockResult);
 
-            when(resultSet.iterator()).thenReturn(resultIterator);
-            when(client.submit(anyString())).thenReturn(resultSet);
+        when(resultSet.iterator()).thenReturn(resultIterator);
+        when(client.submit(anyString())).thenReturn(resultSet);
 
-            // Execute test
-            handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
+        // Execute test
+        handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
 
-            // Verify
-            verify(spiller, times(1)).writeRows(any());
-            verify(client, times(1)).submit(anyString());
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        // Verify
+        verify(spiller, times(1)).writeRows(any());
+        verify(client, times(1)).submit(anyString());
     }
 
     @Test
-    public void testViewQueryWithPassthrough() {
-        try {
-            // Setup view specific mocks
-            customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, "VIEW");
+    public void executeQuery_WithViewTypeAndPassthrough_ProcessesPassthroughData() throws Exception
+    {
+        // Setup view specific mocks
+        customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, VIEW_TYPE);
 
-            // Add count field to schema
-            List<Field> fields = new ArrayList<>();
-            fields.add(new Field("count", FieldType.nullable(new ArrowType.Int(64, true)), null));
-            Schema viewSchema = new Schema(fields, customMetadata);
-            when(recordsRequest.getSchema()).thenReturn(viewSchema);
+        // Add count field to schema
+        List<Field> fields = new ArrayList<>();
+        fields.add(new Field(COUNT_FIELD, FieldType.nullable(new ArrowType.Int(64, true)), null));
+        Schema viewSchema = new Schema(fields, customMetadata);
+        when(recordsRequest.getSchema()).thenReturn(viewSchema);
 
-            // Setup query passthrough
-            Map<String, String> qptArgs = new HashMap<>();
-            qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, "testDb");
-            qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, "person");
-            qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, "g.V().hasLabel('person').valueMap()");
-            qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, "valueMap");
-            qptArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.TRAVERSE");
+        // Setup query passthrough
+        Map<String, String> qptArgs = new HashMap<>();
+        qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, "g.V().hasLabel('person').valueMap()");
+        qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, VALUE_MAP_TYPE);
+        qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_TRAVERSE);
 
-            Constraints constraints = mock(Constraints.class);
-            when(constraints.isQueryPassThrough()).thenReturn(true);
-            when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
-            when(recordsRequest.getConstraints()).thenReturn(constraints);
+        Constraints constraints = mock(Constraints.class);
+        when(constraints.isQueryPassThrough()).thenReturn(true);
+        when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
+        when(recordsRequest.getConstraints()).thenReturn(constraints);
 
-            Result mockResult = mock(Result.class);
-            when(mockResult.getObject()).thenReturn(42L);
+        Result mockResult = mock(Result.class);
+        when(mockResult.getObject()).thenReturn(42L);
 
-            @SuppressWarnings("unchecked")
-            Iterator<Result> resultIterator = mock(Iterator.class);
-            when(resultIterator.hasNext()).thenReturn(true, false);
-            when(resultIterator.next()).thenReturn(mockResult);
+        @SuppressWarnings("unchecked")
+        Iterator<Result> resultIterator = mock(Iterator.class);
+        when(resultIterator.hasNext()).thenReturn(true, false);
+        when(resultIterator.next()).thenReturn(mockResult);
 
-            when(resultSet.iterator()).thenReturn(resultIterator);
-            when(client.submit(anyString())).thenReturn(resultSet);
+        when(resultSet.iterator()).thenReturn(resultIterator);
+        when(client.submit(anyString())).thenReturn(resultSet);
 
-            // Execute test
-            handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
+        // Execute test
+        handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
 
-            // Verify
-            verify(spiller, times(1)).writeRows(any());
-            verify(client, times(1)).submit(anyString());
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        // Verify
+        verify(spiller, times(1)).writeRows(any());
+        verify(client, times(1)).submit(anyString());
     }
 
     @Test
-    public void testQueryPassthrough() {
-        try {
-            // Setup query passthrough mocks
-            Map<String, String> qptArgs = new HashMap<>();
-            qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, "testDb");
-            qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, "person");
-            qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, "g.V().hasLabel('person').valueMap()");
-            qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, "valueMap");
-            qptArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.TRAVERSE");
+    public void executeQuery_WithQueryPassthrough_ProcessesPassthroughQuery() throws Exception
+    {
+        // Setup query passthrough mocks
+        Map<String, String> qptArgs = new HashMap<>();
+        qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, "g.V().hasLabel('person').valueMap()");
+        qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, VALUE_MAP_TYPE);
+        qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_TRAVERSE);
 
-            Constraints constraints = mock(Constraints.class);
-            when(constraints.isQueryPassThrough()).thenReturn(true);
-            when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
-            when(recordsRequest.getConstraints()).thenReturn(constraints);
+        Constraints constraints = mock(Constraints.class);
+        when(constraints.isQueryPassThrough()).thenReturn(true);
+        when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
+        when(recordsRequest.getConstraints()).thenReturn(constraints);
 
-            Map<String, Object> vertexData = new HashMap<>();
-            vertexData.put(T.id.toString(), "1");
-            vertexData.put(T.label.toString(), "person");
-            when(graphTraversal.hasNext()).thenReturn(true, false);
-            when(graphTraversal.next()).thenReturn(vertexData);
+        Map<String, Object> vertexData = new HashMap<>();
+        vertexData.put(T.id.toString(), VERTEX_ID);
+        vertexData.put(T.label.toString(), PERSON_LABEL);
+        when(graphTraversal.hasNext()).thenReturn(true, false);
+        when(graphTraversal.next()).thenReturn(vertexData);
 
-            // Execute test
-            handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
+        // Execute test
+        handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
 
-            // Verify
-            verify(spiller, times(1)).writeRows(any());
-            verify(graphTraversal, atLeastOnce()).hasNext();
-            verify(graphTraversal, atLeastOnce()).next();
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        // Verify
+        verify(spiller, times(1)).writeRows(any());
+        verify(graphTraversal, atLeastOnce()).hasNext();
+        verify(graphTraversal, atLeastOnce()).next();
     }
 
     @Test
-    public void testQueryWithGlabel() {
-        try {
-            // Setup glabel specific mocks
-            customMetadata.put(Constants.SCHEMA_GLABEL, "customLabel");
-            when(recordsRequest.getTableName()).thenReturn(new TableName("testDb", "customLabel"));
+    public void executeQuery_WithCustomLabel_ProcessesCustomLabelData() throws Exception
+    {
+        // Setup glabel specific mocks
+        customMetadata.put(Constants.SCHEMA_GLABEL, CUSTOM_LABEL);
+        when(recordsRequest.getTableName()).thenReturn(new TableName(TEST_DB, CUSTOM_LABEL));
 
-            Map<String, Object> vertexData = new HashMap<>();
-            vertexData.put(T.id.toString(), "1");
-            vertexData.put(T.label.toString(), "customLabel");
-            when(graphTraversal.hasNext()).thenReturn(true, false);
-            when(graphTraversal.next()).thenReturn(vertexData);
+        Map<String, Object> vertexData = new HashMap<>();
+        vertexData.put(T.id.toString(), VERTEX_ID);
+        vertexData.put(T.label.toString(), CUSTOM_LABEL);
+        when(graphTraversal.hasNext()).thenReturn(true, false);
+        when(graphTraversal.next()).thenReturn(vertexData);
 
-            // Execute test
-            handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
+        // Execute test
+        handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
 
-            // Verify
-            verify(spiller, times(1)).writeRows(any());
-            verify(graphTraversal, atLeastOnce()).hasNext();
-            verify(graphTraversal, atLeastOnce()).next();
-            verify(graphTraversal).hasLabel("customLabel");
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        // Verify
+        verify(spiller, times(1)).writeRows(any());
+        verify(graphTraversal, atLeastOnce()).hasNext();
+        verify(graphTraversal, atLeastOnce()).next();
+        verify(graphTraversal).hasLabel(CUSTOM_LABEL);
     }
 
     @Test
-    public void testQueryTermination() {
-        try {
-            // Setup termination test
-            when(queryStatusChecker.isQueryRunning()).thenReturn(false);
+    public void executeQuery_WithQueryTermination_DoesNotProcessData() throws Exception
+    {
+        // Setup termination test
+        when(queryStatusChecker.isQueryRunning()).thenReturn(false);
 
-            // Execute test
-            handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
+        // Execute test
+        handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>());
 
-            // Verify
-            verify(spiller, never()).writeRows(any());
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        // Verify
+        verify(spiller, never()).writeRows(any());
     }
 
     @Test
-    public void testGetResponseFromGremlinQuery() {
-        try {
-            String gremlinQuery = "g.V().count()";
-            when(graphTraversalSource.V()).thenReturn(graphTraversal);
-            when(graphTraversal.count()).thenReturn(graphTraversal);
-            when(graphTraversal.next()).thenReturn(42L);
+    public void getResponseFromGremlinQuery_WithValidQuery_ExecutesQuery() throws Exception
+    {
+        String gremlinQuery = GREMLIN_QUERY;
+        when(graphTraversalSource.V()).thenReturn(graphTraversal);
+        when(graphTraversal.count()).thenReturn(graphTraversal);
+        when(graphTraversal.next()).thenReturn(42L);
 
-            Object result = handler.getResponseFromGremlinQuery(graphTraversalSource, gremlinQuery);
+        handler.getResponseFromGremlinQuery(graphTraversalSource, gremlinQuery);
 
-            verify(graphTraversalSource).V();
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        verify(graphTraversalSource).V();
     }
 
     @Test
-    public void testGetResponseFromGremlinQueryWithError() {
-        String invalidQuery = "invalid.query()";
-        
+    public void getResponseFromGremlinQuery_WithInvalidQuery_ThrowsScriptException() throws Exception
+    {
+        String invalidQuery = INVALID_QUERY;
+
         assertThrows(ScriptException.class, () -> handler.getResponseFromGremlinQuery(graphTraversalSource, invalidQuery));
     }
 
     @Test
-    public void testViewQueryWithInvalidSchema() {
+    public void executeQuery_WithViewTypeAndInvalidSchema_ThrowsRuntimeException() throws Exception
+    {
         // Setup view specific mocks with invalid schema (no query)
-        customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, "VIEW");
-        
+        customMetadata.put(Constants.SCHEMA_COMPONENT_TYPE, VIEW_TYPE);
+
         // Add count field to schema
         List<Field> fields = new ArrayList<>();
-        fields.add(new Field("count", FieldType.nullable(new ArrowType.Int(64, true)), null));
+        fields.add(new Field(COUNT_FIELD, FieldType.nullable(new ArrowType.Int(64, true)), null));
         Schema viewSchema = new Schema(fields, customMetadata);
         when(recordsRequest.getSchema()).thenReturn(viewSchema);
-        
+
         // Execute test and verify exception
         assertThrows(RuntimeException.class, () -> handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>()));
     }
 
     @Test
-    public void testQueryPassthroughWithInvalidQuery() {
+    public void executeQuery_WithQueryPassthroughAndInvalidQuery_ThrowsRuntimeException() throws Exception
+    {
         // Setup query passthrough mocks with missing query
         Map<String, String> qptArgs = new HashMap<>();
-        qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, "testDb");
-        qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, "person");
-        qptArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
-        
+        qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
+        qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_QUERY);
+
         Constraints constraints = mock(Constraints.class);
         when(constraints.isQueryPassThrough()).thenReturn(true);
         when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
         when(recordsRequest.getConstraints()).thenReturn(constraints);
-        
+
         // Execute test and verify exception
         assertThrows(RuntimeException.class, () -> handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>()));
     }

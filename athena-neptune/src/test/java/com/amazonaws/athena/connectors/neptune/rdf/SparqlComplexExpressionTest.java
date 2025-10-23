@@ -38,6 +38,22 @@ import static org.mockito.Mockito.when;
 
 public class SparqlComplexExpressionTest
 {
+    private static final String LOCALHOST = "localhost";
+    private static final String PORT = "8182";
+    private static final String REGION = "us-west-2";
+    private static final String MULTIPLE_CONDITIONS_QUERY = "SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER (?age > 25 && ?salary < 100000) }";
+    private static final String NESTED_CONDITIONS_QUERY = "SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER ((?age >= 18 && ?age <= 65) || ?status = 'admin') }";
+    private static final String ORDER_BY_QUERY = "SELECT ?s ?name ?age WHERE { ?s ?name ?age . FILTER(?age > 25) } ORDER BY ?name ASC, ?age DESC";
+    private static final String LIMIT_QUERY = "SELECT ?s ?name ?age WHERE { ?s ?name ?age . FILTER(?age > 25) } ORDER BY ?name ASC LIMIT 10";
+    private static final String DEFAULT_QUERY = "SELECT ?s ?p ?o WHERE { ?s ?p ?o }";
+    private static final String TOP_N_QUERY = "SELECT ?s ?name ?salary WHERE { ?s ?name ?salary . FILTER(?salary > 50000) } ORDER BY ?salary DESC LIMIT 5";
+    private static final String MIXED_DATA_TYPES_QUERY = "SELECT ?s ?name ?age ?active WHERE { ?s ?name ?age ?active . FILTER(?name = 'John' && ?age > 25 && ?active = true) } ORDER BY ?name ASC, ?age DESC";
+    private static final String NOT_EQUAL_QUERY = "SELECT ?s ?status ?role WHERE { ?s ?status ?role . FILTER(?status != 'inactive' && ?role != 'guest') } ORDER BY ?status ASC";
+    private static final String LONG_VALUES_QUERY = "SELECT ?s ?timestamp ?id WHERE { ?s ?timestamp ?id . FILTER(?timestamp > 1609459200000 && ?id != 0) } ORDER BY ?id ASC, ?timestamp DESC";
+    private static final String BOOLEAN_LOGIC_QUERY = "SELECT ?s ?isActive ?isVerified WHERE { ?s ?isActive ?isVerified . FILTER(?isActive = true && ?isVerified = false) } ORDER BY ?isActive ASC, ?isVerified DESC";
+    private static final String FLOAT_COMPARISONS_QUERY = "SELECT ?s ?price ?rating WHERE { ?s ?price ?rating . FILTER(?price >= 10.5 && ?rating <= 4.8) } ORDER BY ?price ASC, ?rating DESC";
+    private static final String MULTIPLE_ORDER_BY_QUERY = "SELECT ?s ?department ?salary ?name WHERE { ?s ?department ?salary ?name . FILTER(?salary > 50000) } ORDER BY ?department ASC, ?salary DESC, ?name ASC";
+    
     @Mock
     private RepositoryConnection mockConnection;
     @Mock
@@ -51,119 +67,107 @@ public class SparqlComplexExpressionTest
     public void setUp()
     {
         MockitoAnnotations.openMocks(this);
-        neptuneSparqlConnection = new NeptuneSparqlConnection("localhost", "8182", false, "us-west-2");
+        neptuneSparqlConnection = new NeptuneSparqlConnection(LOCALHOST, PORT, false, REGION);
         neptuneSparqlConnection.connection = mockConnection;
         when(mockConnection.prepareTupleQuery(any(QueryLanguage.class), anyString())).thenReturn(mockTupleQuery);
         when(mockTupleQuery.evaluate()).thenReturn(mockQueryResult);
     }
 
     @Test
-    public void testComplexSparqlExpressionWithMultipleConditions()
+    public void runQuery_WithMultipleConditions_ExecutesQuery()
     {
-        String query = "SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER (?age > 25 && ?salary < 100000) }";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(MULTIPLE_CONDITIONS_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, MULTIPLE_CONDITIONS_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithNestedConditions()
+    public void runQuery_WithNestedConditions_ExecutesQuery()
     {
-        String query = "SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER ((?age >= 18 && ?age <= 65) || ?status = 'admin') }";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(NESTED_CONDITIONS_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, NESTED_CONDITIONS_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithOrderBy()
+    public void runQuery_WithOrderBy_ExecutesQuery()
     {
-        String query = "SELECT ?s ?name ?age WHERE { ?s ?name ?age . FILTER(?age > 25) } ORDER BY ?name ASC, ?age DESC";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(ORDER_BY_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, ORDER_BY_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithLimit()
+    public void runQuery_WithLimit_ExecutesQuery()
     {
-        String query = "SELECT ?s ?name ?age WHERE { ?s ?name ?age . FILTER(?age > 25) } ORDER BY ?name ASC LIMIT 10";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(LIMIT_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, LIMIT_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithDefaultLimit()
+    public void runQuery_WithDefaultLimit_ExecutesQuery()
     {
-        String query = "SELECT ?s ?p ?o WHERE { ?s ?p ?o }";
-        String expectedQueryWithLimit = query + "\n" + Constants.SPARQL_QUERY_LIMIT;
+        String expectedQueryWithLimit = DEFAULT_QUERY + "\n" + Constants.SPARQL_QUERY_LIMIT;
         neptuneSparqlConnection.runQuery(expectedQueryWithLimit);
         verify(mockConnection).prepareTupleQuery(eq(QueryLanguage.SPARQL),
-                argThat(q -> q.contains(query) && q.contains(Constants.SPARQL_QUERY_LIMIT)));
+                argThat(q -> q.contains(DEFAULT_QUERY) && q.contains(Constants.SPARQL_QUERY_LIMIT)));
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithTopN()
+    public void runQuery_WithTopN_ExecutesQuery()
     {
-        String query = "SELECT ?s ?name ?salary WHERE { ?s ?name ?salary . FILTER(?salary > 50000) } ORDER BY ?salary DESC LIMIT 5";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(TOP_N_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, TOP_N_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithMixedDataTypes()
+    public void runQuery_WithMixedDataTypes_ExecutesQuery()
     {
-        String query = "SELECT ?s ?name ?age ?active WHERE { ?s ?name ?age ?active . FILTER(?name = 'John' && ?age > 25 && ?active = true) } ORDER BY ?name ASC, ?age DESC";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(MIXED_DATA_TYPES_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, MIXED_DATA_TYPES_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithNotEqualConditions()
+    public void runQuery_WithNotEqualConditions_ExecutesQuery()
     {
-        String query = "SELECT ?s ?status ?role WHERE { ?s ?status ?role . FILTER(?status != 'inactive' && ?role != 'guest') } ORDER BY ?status ASC";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(NOT_EQUAL_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, NOT_EQUAL_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithLongValues()
+    public void runQuery_WithLongValues_ExecutesQuery()
     {
-        String query = "SELECT ?s ?timestamp ?id WHERE { ?s ?timestamp ?id . FILTER(?timestamp > 1609459200000 && ?id != 0) } ORDER BY ?id ASC, ?timestamp DESC";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(LONG_VALUES_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, LONG_VALUES_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithBooleanLogic()
+    public void runQuery_WithBooleanLogic_ExecutesQuery()
     {
-        String query = "SELECT ?s ?isActive ?isVerified WHERE { ?s ?isActive ?isVerified . FILTER(?isActive = true && ?isVerified = false) } ORDER BY ?isActive ASC, ?isVerified DESC";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(BOOLEAN_LOGIC_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, BOOLEAN_LOGIC_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithFloatComparisons()
+    public void runQuery_WithFloatComparisons_ExecutesQuery()
     {
-        String query = "SELECT ?s ?price ?rating WHERE { ?s ?price ?rating . FILTER(?price >= 10.5 && ?rating <= 4.8) } ORDER BY ?price ASC, ?rating DESC";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(FLOAT_COMPARISONS_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, FLOAT_COMPARISONS_QUERY);
         verify(mockTupleQuery).evaluate();
     }
     
     @Test
-    public void testComplexSparqlExpressionWithMultipleOrderBy()
+    public void runQuery_WithMultipleOrderBy_ExecutesQuery()
     {
-        String query = "SELECT ?s ?department ?salary ?name WHERE { ?s ?department ?salary ?name . FILTER(?salary > 50000) } ORDER BY ?department ASC, ?salary DESC, ?name ASC";
-        neptuneSparqlConnection.runQuery(query);
-        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, query);
+        neptuneSparqlConnection.runQuery(MULTIPLE_ORDER_BY_QUERY);
+        verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, MULTIPLE_ORDER_BY_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 }

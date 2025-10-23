@@ -65,9 +65,7 @@ import static com.amazonaws.athena.connector.lambda.metadata.optimizations.query
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -75,7 +73,8 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.Silent.class)
-public class NeptuneMetadataHandlerTest extends TestBase {
+public class NeptuneMetadataHandlerTest extends TestBase
+{
     @Mock
     private GlueClient glue;
     @Mock
@@ -85,32 +84,36 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     private static final Map<String, String> DEFAULT_PARAMS = new HashMap<>();
 
     @Before
-    public void setUp() {
+    public void setUp()
+    {
         allocator = new BlockAllocatorImpl();
         glue = mock(GlueClient.class);
         handler = new NeptuneMetadataHandler(glue, neptuneConnection, new LocalKeyFactory(),
-            mock(SecretsManagerClient.class), mock(AthenaClient.class), 
-            "spill-bucket", "spill-prefix", DEFAULT_PARAMS);
+                mock(SecretsManagerClient.class), mock(AthenaClient.class),
+                "spill-bucket", "spill-prefix", DEFAULT_PARAMS);
     }
 
     @After
-    public void after() {
+    public void after()
+    {
         allocator.close();
     }
 
     @Test
-    public void doListSchemaNames() {
+    public void doListSchemaNames()
+    {
         ListSchemasRequest req = new ListSchemasRequest(IDENTITY, "queryId", "default");
         ListSchemasResponse res = handler.doListSchemaNames(allocator, req);
         assertFalse(res.getSchemas().isEmpty());
     }
 
     @Test
-    public void doListTables() {
+    public void doListTables()
+    {
         List<Table> tables = Arrays.asList(
-            Table.builder().name("table1").build(),
-            Table.builder().name("table2").build(),
-            Table.builder().name("table3").build()
+                Table.builder().name("table1").build(),
+                Table.builder().name("table2").build(),
+                Table.builder().name("table3").build()
         );
         GetTablesResponse tableResponse = GetTablesResponse.builder().tableList(tables).build();
         when(glue.getTables(any(GetTablesRequest.class))).thenReturn(tableResponse);
@@ -122,17 +125,17 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     }
 
     @Test
-    public void doGetTable() {
-        try {
-            List<Column> columns = Arrays.asList(
-                    Column.builder().name("col1").type("int").comment("comment").build(),
-                    Column.builder().name("col2").type("bigint").comment("comment").build(),
-                    Column.builder().name("col3").type("string").comment("comment").build(),
-                    Column.builder().name("col4").type("timestamp").comment("comment").build(),
-                    Column.builder().name("col5").type("date").comment("comment").build(),
-                    Column.builder().name("col6").type("timestamptz").comment("comment").build(),
-                    Column.builder().name("col7").type("timestamptz").comment("comment").build()
-            );
+    public void doGetTable() throws Exception
+    {
+        List<Column> columns = Arrays.asList(
+                Column.builder().name("col1").type("int").comment("comment").build(),
+                Column.builder().name("col2").type("bigint").comment("comment").build(),
+                Column.builder().name("col3").type("string").comment("comment").build(),
+                Column.builder().name("col4").type("timestamp").comment("comment").build(),
+                Column.builder().name("col5").type("date").comment("comment").build(),
+                Column.builder().name("col6").type("timestamptz").comment("comment").build(),
+                Column.builder().name("col7").type("timestamptz").comment("comment").build()
+        );
 
         Table table = Table.builder()
                 .name("table1")
@@ -141,54 +144,52 @@ public class NeptuneMetadataHandlerTest extends TestBase {
                 .build();
 
         when(glue.getTable(any(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-            .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
-                .table(table).build());
+                .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
+                        .table(table).build());
 
-            GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "default",
-                    new TableName("schema1", "table1"), Collections.emptyMap());
-            GetTableResponse res = handler.doGetTable(allocator, req);
-            assertFalse(res.getSchema().getFields().isEmpty());
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "default",
+                new TableName("schema1", "table1"), Collections.emptyMap());
+        GetTableResponse res = handler.doGetTable(allocator, req);
+        assertFalse(res.getSchema().getFields().isEmpty());
     }
 
-    private void setupQueryPassthroughTest(String graphType) throws Exception {
+    private void setupQueryPassthroughTest(String graphType) throws NoSuchFieldException, IllegalAccessException
+    {
         Map<String, String> config = new HashMap<>();
         config.put(Constants.CFG_GRAPH_TYPE, graphType);
         Field configOptionsField = handler.getClass().getSuperclass().getSuperclass()
-            .getDeclaredField("configOptions");
+                .getDeclaredField("configOptions");
         configOptionsField.setAccessible(true);
         configOptionsField.set(handler, config);
 
         List<Column> columns;
         if ("rdf".equals(graphType)) {
             columns = Arrays.asList(
-                Column.builder().name("s").type("string").build(),
-                Column.builder().name("p").type("string").build(),
-                Column.builder().name("o").type("string").build()
+                    Column.builder().name("s").type("string").build(),
+                    Column.builder().name("p").type("string").build(),
+                    Column.builder().name("o").type("string").build()
             );
         } else {
             columns = Arrays.asList(
-                Column.builder().name("code").type("string").build(),
-                Column.builder().name("city").type("string").build()
+                    Column.builder().name("code").type("string").build(),
+                    Column.builder().name("city").type("string").build()
             );
         }
 
         Table table = Table.builder()
-            .name("table1")
-            .storageDescriptor(StorageDescriptor.builder().columns(columns).build())
-            .parameters(new HashMap<>())
-            .build();
+                .name("table1")
+                .storageDescriptor(StorageDescriptor.builder().columns(columns).build())
+                .parameters(new HashMap<>())
+                .build();
         when(glue.getTable(any(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-            .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
-                .table(table).build());
+                .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
+                        .table(table).build());
     }
 
     @Test
-    public void testDoGetQueryPassthroughSchema_rdf_validSparql() {
-        try {
-            setupQueryPassthroughTest("rdf");
+    public void doGetQueryPassthroughSchema_WithRdfAndValidSparql_ReturnsValidSchema() throws Exception
+    {
+        setupQueryPassthroughTest("rdf");
 
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("s", "subject1");
@@ -203,58 +204,58 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         connField.setAccessible(true);
         connField.set(handler, sparqlConnection);
 
-        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, 
-            createPassthroughRequest("SELECT ?s ?p ?o WHERE { ?s ?p ?o }"));
+        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
+                createPassthroughRequest("SELECT ?s ?p ?o WHERE { ?s ?p ?o }"));
 
-            assertNotNull(res);
-            assertEquals("table1", res.getTableName().getTableName());
-            assertFalse(res.getSchema().getFields().isEmpty());
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
-        }
+        assertNotNull(res);
+        assertEquals("table1", res.getTableName().getTableName());
+        assertFalse(res.getSchema().getFields().isEmpty());
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void testInvalidGraphType() throws Exception {
+    public void doGetQueryPassthroughSchema_WithInvalidGraphType_ThrowsIllegalArgumentException() throws Exception
+    {
         Map<String, String> configOptions = new HashMap<>();
         configOptions.put(Constants.CFG_GRAPH_TYPE, "INVALID_TYPE");
-        
+
         Field configOptionsField = handler.getClass().getSuperclass().getSuperclass()
-            .getDeclaredField("configOptions");
+                .getDeclaredField("configOptions");
         configOptionsField.setAccessible(true);
         configOptionsField.set(handler, configOptions);
 
         Table table = Table.builder()
-            .name("table1")
-            .storageDescriptor(StorageDescriptor.builder()
-                .columns(Collections.singletonList(
-                        Column.builder().name("col1").type("string").build()
-                ))
-                .build())
-            .build();
+                .name("table1")
+                .storageDescriptor(StorageDescriptor.builder()
+                        .columns(Collections.singletonList(
+                                Column.builder().name("col1").type("string").build()
+                        ))
+                        .build())
+                .build();
 
         when(glue.getTable(any(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-            .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
-                .table(table)
-                .build());
+                .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
+                        .table(table)
+                        .build());
 
         GetTableRequest req = createPassthroughRequest("g.V().hasLabel(\"airport\").valueMap()");
         handler.doGetQueryPassthroughSchema(allocator, req);
     }
 
     @Test
-    public void testGetDataSourceCapabilities() {
+    public void doGetDataSourceCapabilities_WithValidRequest_ReturnsCapabilities()
+    {
         GetDataSourceCapabilitiesRequest request = new GetDataSourceCapabilitiesRequest(IDENTITY, "queryId", DEFAULT_CATALOG);
         GetDataSourceCapabilitiesResponse response = handler.doGetDataSourceCapabilities(allocator, request);
-        
+
         assertNotNull(response);
         assertNotNull(response.getCapabilities());
     }
 
     @Test(expected = NullPointerException.class)
-    public void testGetTableWithNullGlue() throws Exception {
+    public void doGetTable_WithNullGlue_ThrowsNullPointerException() throws Exception
+    {
         NeptuneMetadataHandler nullGlueHandler = new NeptuneMetadataHandler(null, neptuneConnection,
-                new LocalKeyFactory(), mock(SecretsManagerClient.class), 
+                new LocalKeyFactory(), mock(SecretsManagerClient.class),
                 mock(AthenaClient.class), "spill-bucket", "spill-prefix", DEFAULT_PARAMS);
 
         GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "default",
@@ -263,7 +264,8 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void testDoGetQueryPassthroughSchema_rdf_invalidSparql() throws Exception {
+    public void doGetQueryPassthroughSchema_WithRdfAndInvalidSparql_ThrowsRuntimeException() throws Exception
+    {
         setupQueryPassthroughTest("rdf");
 
         NeptuneSparqlConnection sparqlConnection = mock(NeptuneSparqlConnection.class);
@@ -278,7 +280,8 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void testDoGetQueryPassthroughSchema_propertyGraph_emptyResponse() throws Exception {
+    public void doGetQueryPassthroughSchema_WithPropertyGraphAndEmptyResponse_ThrowsRuntimeException() throws Exception
+    {
         setupQueryPassthroughTest("propertygraph");
 
         GraphTraversal graphTraversalMock = mock(GraphTraversal.class);
@@ -287,22 +290,22 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         Client clientMock = mock(Client.class);
         when(neptuneConnection.getNeptuneClientConnection()).thenReturn(clientMock);
         when(neptuneConnection.getTraversalSource(clientMock))
-            .thenReturn(mock(GraphTraversalSource.class));
+                .thenReturn(mock(GraphTraversalSource.class));
 
-        try (MockedConstruction<PropertyGraphHandler> mocked = 
-                mockConstruction(PropertyGraphHandler.class,
-                    (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
-                        .thenReturn(graphTraversalMock))) {
+        try (MockedConstruction<PropertyGraphHandler> mocked =
+                     mockConstruction(PropertyGraphHandler.class,
+                             (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
+                                     .thenReturn(graphTraversalMock))) {
 
             handler.doGetQueryPassthroughSchema(allocator,
-                createPassthroughRequest("g.V().hasLabel('nonexistent').valueMap().limit(1)"));
+                    createPassthroughRequest("g.V().hasLabel('nonexistent').valueMap().limit(1)"));
         }
     }
 
     @Test
-    public void testDoGetQueryPassthroughSchema_propertyGraph_validGremlin() {
-        try {
-            setupQueryPassthroughTest("propertygraph");
+    public void doGetQueryPassthroughSchema_WithPropertyGraphAndValidGremlin_ReturnsValidSchema() throws Exception
+    {
+        setupQueryPassthroughTest("propertygraph");
 
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("code", "SFO");
@@ -312,28 +315,25 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         when(graphTraversalMock.hasNext()).thenReturn(true, false);
         when(graphTraversalMock.next()).thenReturn(resultMap);
 
-            try (MockedConstruction<PropertyGraphHandler> mocked =
-                         mockConstruction(PropertyGraphHandler.class,
-                                 (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
-                                         .thenReturn(graphTraversalMock))) {
+        try (MockedConstruction<PropertyGraphHandler> mocked =
+                     mockConstruction(PropertyGraphHandler.class,
+                             (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
+                                     .thenReturn(graphTraversalMock))) {
 
             GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
-                createGremlinPassthroughRequest("g.V().hasLabel(\"airport\").valueMap().limit(1)"));
+                    createGremlinPassthroughRequest("g.V().hasLabel(\"airport\").valueMap().limit(1)"));
 
-                assertNotNull(res);
-                assertEquals("table1", res.getTableName().getTableName());
-                assertFalse(res.getSchema().getFields().isEmpty());
-                assertEquals(2, res.getSchema().getFields().size());
-            }
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
+            assertNotNull(res);
+            assertEquals("table1", res.getTableName().getTableName());
+            assertFalse(res.getSchema().getFields().isEmpty());
+            assertEquals(2, res.getSchema().getFields().size());
         }
     }
 
     @Test
-    public void testDoGetQueryPassthroughSchema_propertyGraph_partialColumns() {
-        try {
-            setupQueryPassthroughTest("propertygraph");
+    public void doGetQueryPassthroughSchema_WithPropertyGraphAndPartialColumns_ReturnsSchemaWithAvailableColumns() throws Exception
+    {
+        setupQueryPassthroughTest("propertygraph");
 
         // Create a result map with only one column, while Glue schema has two columns
         Map<String, Object> resultMap = new HashMap<>();
@@ -344,43 +344,42 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         when(graphTraversalMock.hasNext()).thenReturn(true);
         when(graphTraversalMock.next()).thenReturn(resultMap);
 
-        try (MockedConstruction<PropertyGraphHandler> mocked = 
-                mockConstruction(PropertyGraphHandler.class,
-                    (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
-                        .thenReturn(graphTraversalMock))) {
+        try (MockedConstruction<PropertyGraphHandler> mocked =
+                     mockConstruction(PropertyGraphHandler.class,
+                             (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
+                                     .thenReturn(graphTraversalMock))) {
 
             GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
-                createGremlinPassthroughRequest("g.V().hasLabel(\"airport\").valueMap(\"code\").limit(1)"));
+                    createGremlinPassthroughRequest("g.V().hasLabel(\"airport\").valueMap(\"code\").limit(1)"));
 
-                assertNotNull(res);
-                assertEquals("table1", res.getTableName().getTableName());
-                assertFalse(res.getSchema().getFields().isEmpty());
-                assertEquals(1, res.getSchema().getFields().size());
-                assertEquals("code", res.getSchema().getFields().get(0).getName());
-            }
-        } catch (Exception e) {
-            fail("Unexpected exception: " + e.getMessage());
+            assertNotNull(res);
+            assertEquals("table1", res.getTableName().getTableName());
+            assertFalse(res.getSchema().getFields().isEmpty());
+            assertEquals(1, res.getSchema().getFields().size());
+            assertEquals("code", res.getSchema().getFields().get(0).getName());
         }
     }
 
-    private GetTableRequest createPassthroughRequest(String query) {
+    private GetTableRequest createPassthroughRequest(String query)
+    {
         Map<String, String> passthroughArgs = new HashMap<>();
         passthroughArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
         passthroughArgs.put(NeptuneSparqlQueryPassthrough.DATABASE, "schema1");
         passthroughArgs.put(NeptuneSparqlQueryPassthrough.COLLECTION, "table1");
         passthroughArgs.put(NeptuneSparqlQueryPassthrough.QUERY, query);
-        return new GetTableRequest(IDENTITY, "queryId", "catalog", 
-            new TableName("schema1", "table1"), passthroughArgs);
+        return new GetTableRequest(IDENTITY, "queryId", "catalog",
+                new TableName("schema1", "table1"), passthroughArgs);
     }
-    
-    private GetTableRequest createGremlinPassthroughRequest(String query) {
+
+    private GetTableRequest createGremlinPassthroughRequest(String query)
+    {
         Map<String, String> passthroughArgs = new HashMap<>();
         passthroughArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.TRAVERSE");
         passthroughArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, "schema1");
         passthroughArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, "table1");
         passthroughArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, query);
         passthroughArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, "valueMap");
-        return new GetTableRequest(IDENTITY, "queryId", "catalog", 
-            new TableName("schema1", "table1"), passthroughArgs);
+        return new GetTableRequest(IDENTITY, "queryId", "catalog",
+                new TableName("schema1", "table1"), passthroughArgs);
     }
 }

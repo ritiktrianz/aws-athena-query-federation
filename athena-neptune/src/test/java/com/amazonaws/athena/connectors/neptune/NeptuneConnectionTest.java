@@ -43,6 +43,11 @@ public class NeptuneConnectionTest {
     private static final String TEST_ENDPOINT = "localhost";
     private static final String TEST_PORT = "8182";
     private static final String TEST_REGION = "us-east-1";
+    private static final String IAM_DISABLED = "false";
+    private static final String IAM_ENABLED = "true";
+    private static final String PROPERTYGRAPH_TYPE = "PROPERTYGRAPH";
+    private static final String RDF_TYPE = "RDF";
+    private static final String INVALID_TYPE = "INVALID_TYPE";
 
     @Mock
     private Client mockClient;
@@ -55,14 +60,14 @@ public class NeptuneConnectionTest {
         configOptions = new HashMap<>();
         configOptions.put(Constants.CFG_ENDPOINT, TEST_ENDPOINT);
         configOptions.put(Constants.CFG_PORT, TEST_PORT);
-        configOptions.put(Constants.CFG_IAM, "false");
+        configOptions.put(Constants.CFG_IAM, IAM_DISABLED);
         configOptions.put(Constants.CFG_REGION, TEST_REGION);
     }
 
     @Test
-    public void createConnection_WithPropertyGraphType_ReturnsNeptuneGremlinConnection() {
+    public void createConnection_WithPropertyGraphType_ReturnsNeptuneGremlinConnection() throws Exception {
         // Setup
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+        configOptions.put(Constants.CFG_GRAPH_TYPE, PROPERTYGRAPH_TYPE);
         
         // Execute
         NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
@@ -81,7 +86,7 @@ public class NeptuneConnectionTest {
     @Test
     public void createConnection_WithRDFType_ReturnsNeptuneSparqlConnection() {
         // Setup
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
+        configOptions.put(Constants.CFG_GRAPH_TYPE, RDF_TYPE);
         
         // Execute
         NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
@@ -116,7 +121,7 @@ public class NeptuneConnectionTest {
     @Test(expected = IllegalArgumentException.class)
     public void createConnection_WithInvalidGraphType_ThrowsIllegalArgumentException() {
         // Setup
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "INVALID_TYPE");
+        configOptions.put(Constants.CFG_GRAPH_TYPE, INVALID_TYPE);
         
         // Execute - should throw IllegalArgumentException
         NeptuneConnection.createConnection(configOptions);
@@ -125,8 +130,8 @@ public class NeptuneConnectionTest {
     @Test
     public void createConnection_WithIAMEnabled_ReturnsConnectionWithIAMEnabled() {
         // Setup
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
-        configOptions.put(Constants.CFG_IAM, "true");
+        configOptions.put(Constants.CFG_GRAPH_TYPE, PROPERTYGRAPH_TYPE);
+        configOptions.put(Constants.CFG_IAM, IAM_ENABLED);
         
         // Execute
         NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
