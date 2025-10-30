@@ -20,6 +20,7 @@
 package com.amazonaws.athena.connectors.datalakegen2;
 
 import com.amazonaws.athena.connector.credentials.CredentialsProvider;
+import com.amazonaws.athena.connector.lambda.data.Block;
 import com.amazonaws.athena.connector.lambda.data.BlockAllocator;
 import com.amazonaws.athena.connector.lambda.data.BlockAllocatorImpl;
 import com.amazonaws.athena.connector.lambda.data.BlockUtils;
@@ -28,6 +29,8 @@ import com.amazonaws.athena.connector.lambda.data.SchemaBuilder;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesRequest;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesResponse;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsRequest;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsResponse;
 import com.amazonaws.athena.connector.lambda.metadata.GetTableLayoutRequest;
@@ -36,12 +39,14 @@ import com.amazonaws.athena.connector.lambda.metadata.GetTableRequest;
 import com.amazonaws.athena.connector.lambda.metadata.GetTableResponse;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesResponse;
+import com.amazonaws.athena.connector.lambda.metadata.optimizations.OptimizationSubType;
 import com.amazonaws.athena.connector.lambda.security.FederatedIdentity;
 import com.amazonaws.athena.connectors.datalakegen2.resolver.DataLakeGen2CaseResolver;
 import com.amazonaws.athena.connectors.jdbc.TestBase;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Before;
@@ -56,13 +61,17 @@ import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRespon
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -71,6 +80,8 @@ import static com.amazonaws.athena.connectors.datalakegen2.DataLakeGen2MetadataH
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -212,16 +223,16 @@ public class DataLakeGen2MetadataHandlerTest
         when(connection.getMetaData().getColumns("testCatalog", inputTableName.getSchemaName(), inputTableName.getTableName(), null)).thenReturn(resultSet);
         when(connection.getCatalog()).thenReturn("testCatalog");
         when(connection.getMetaData().getURL()).thenReturn("jdbc:sqlserver://hostname;databaseName=fakedatabase");
-        
+
         // Mock the connection's setAutoCommit method
         when(connection.getAutoCommit()).thenReturn(true);
-        
+
         // Mock the data type query result set
         String[] dataTypeSchema = {"COLUMN_NAME", "DATA_TYPE", "PRECISION", "SCALE"};
         Object[][] dataTypeValues = {{"testCol1", "int", 10, 0}, {"testCol2", "varchar", 255, 0}, {"testCol3", "datetime", 23, 3}, {"testCol4", "datetimeoffset", 34, 7}};
         AtomicInteger dataTypeRowNumber = new AtomicInteger(-1);
         ResultSet dataTypeResultSet = mockResultSet(dataTypeSchema, dataTypeValues, dataTypeRowNumber);
-        
+
         // Mock the prepared statement and its execution
         java.sql.PreparedStatement mockPreparedStatement = mock(java.sql.PreparedStatement.class);
         when(connection.prepareStatement(any(String.class))).thenReturn(mockPreparedStatement);
@@ -245,32 +256,32 @@ public class DataLakeGen2MetadataHandlerTest
         Object[][] dataTypeValues = {
             // Primary Key
             {"id", "int", 10, 0},
-            
+
             // Integer Types
             {"small_int_col", "smallint", 5, 0},
             {"tiny_int_col", "tinyint", 3, 0},
             {"big_int_col", "bigint", 19, 0},
-            
+
             // Decimal/Numeric Types
             {"decimal_col", "decimal", 18, 2},
             {"numeric_col", "numeric", 18, 2},
             {"money_col", "money", 19, 4},
             {"small_money_col", "smallmoney", 10, 4},
-            
+
             // Floating Point Types
             {"float_col", "float", 53, 0},
             {"real_col", "real", 24, 0},
-            
+
             // Character Types
             {"char_col", "char", 10, 0},
             {"varchar_col", "varchar", 255, 0},
             {"nchar_col", "nchar", 10, 0},
             {"nvarchar_col", "nvarchar", 255, 0},
-            
+
             // Binary Types
             {"binary_col", "binary", 16, 0},
             {"varbinary_col", "varbinary", 255, 0},
-            
+
             // Date and Time Types
             {"date_col", "date", 10, 0},
             {"time_col", "time", 16, 7},
@@ -278,10 +289,10 @@ public class DataLakeGen2MetadataHandlerTest
             {"datetime2_col", "datetime2", 27, 7},
             {"smalldatetime_col", "smalldatetime", 16, 0},
             {"datetimeoffset_col", "datetimeoffset", 34, 7},
-            
+
             // Special Types
             {"uniqueidentifier_col", "uniqueidentifier", 36, 0},
-            
+
             // Boolean
             {"bit_col", "bit", 1, 0}
         };
@@ -305,40 +316,40 @@ public class DataLakeGen2MetadataHandlerTest
         assertNotNull(getTableResponse);
         assertEquals(inputTableName, getTableResponse.getTableName());
         assertEquals("testCatalog", getTableResponse.getCatalogName());
-        
+
         // Verify that the schema was built using the direct SQL query approach (Azure serverless path)
         Schema responseSchema = getTableResponse.getSchema();
         assertNotNull(responseSchema);
         assertEquals(25, responseSchema.getFields().size()); // 24 columns from our mock data + 1 partition field
-        
+
         // Verify specific data types are correctly mapped
         List<Field> fields = responseSchema.getFields();
-        
+
         // Verify integer types (based on actual DataLakeGen2MetadataHandler mappings)
         assertTrue("Should contain INT field", fields.stream().anyMatch(f -> f.getName().equals("id") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.INT.getType())));
         assertTrue("Should contain SMALLINT field", fields.stream().anyMatch(f -> f.getName().equals("small_int_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.SMALLINT.getType())));
         assertTrue("Should contain TINYINT field", fields.stream().anyMatch(f -> f.getName().equals("tiny_int_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.TINYINT.getType())));
         assertTrue("Should contain BIGINT field", fields.stream().anyMatch(f -> f.getName().equals("big_int_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.BIGINT.getType())));
-        
+
         // Verify decimal types (mapped to DECIMAL in DataLakeGen2MetadataHandler)
         assertTrue("Should contain DECIMAL field", fields.stream().anyMatch(f -> f.getName().equals("decimal_col") && f.getType() instanceof org.apache.arrow.vector.types.pojo.ArrowType.Decimal));
         assertTrue("Should contain NUMERIC field (mapped to FLOAT8)", fields.stream().anyMatch(f -> f.getName().equals("numeric_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.FLOAT8.getType())));
-        
+
         // Verify floating point types
         assertTrue("Should contain FLOAT field", fields.stream().anyMatch(f -> f.getName().equals("float_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.FLOAT8.getType())));
         assertTrue("Should contain REAL field", fields.stream().anyMatch(f -> f.getName().equals("real_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.FLOAT4.getType())));
-        
+
         // Verify character types (all mapped to VARCHAR)
         assertTrue("Should contain CHAR field (mapped to VARCHAR)", fields.stream().anyMatch(f -> f.getName().equals("char_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType())));
         assertTrue("Should contain VARCHAR field", fields.stream().anyMatch(f -> f.getName().equals("varchar_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType())));
         assertTrue("Should contain NCHAR field (mapped to VARCHAR)", fields.stream().anyMatch(f -> f.getName().equals("nchar_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType())));
         assertTrue("Should contain NVARCHAR field (mapped to VARCHAR)", fields.stream().anyMatch(f -> f.getName().equals("nvarchar_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType())));
-        
+
         // Verify binary types (mapped to VARBINARY in DataLakeGen2MetadataHandler)
         assertTrue("Should contain BINARY field (mapped to VARBINARY)", fields.stream().anyMatch(f -> f.getName().equals("binary_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARBINARY.getType())));
         assertTrue("Should contain VARBINARY field", fields.stream().anyMatch(f -> f.getName().equals("varbinary_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARBINARY.getType())));
-        
-        
+
+
         // Verify date/time types (based on actual mappings)
         assertTrue("Should contain DATE field", fields.stream().anyMatch(f -> f.getName().equals("date_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.DATEDAY.getType())));
         assertTrue("Should contain TIME field (mapped to VARCHAR)", fields.stream().anyMatch(f -> f.getName().equals("time_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType())));
@@ -346,11 +357,11 @@ public class DataLakeGen2MetadataHandlerTest
         assertTrue("Should contain DATETIME2 field (mapped to DATEMILLI)", fields.stream().anyMatch(f -> f.getName().equals("datetime2_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType())));
         assertTrue("Should contain SMALLDATETIME field (mapped to DATEMILLI)", fields.stream().anyMatch(f -> f.getName().equals("smalldatetime_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType())));
         assertTrue("Should contain DATETIMEOFFSET field (mapped to DATEMILLI)", fields.stream().anyMatch(f -> f.getName().equals("datetimeoffset_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType())));
-        
+
         // Verify special types
         assertTrue("Should contain UNIQUEIDENTIFIER field (mapped to VARCHAR)", fields.stream().anyMatch(f -> f.getName().equals("uniqueidentifier_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType())));
         assertTrue("Should contain BIT field (mapped to BIT)", fields.stream().anyMatch(f -> f.getName().equals("bit_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.BIT.getType())));
-        
+
         // Verify money types (mapped to FLOAT8 in DataLakeGen2MetadataHandler)
         assertTrue("Should contain MONEY field (mapped to FLOAT8)", fields.stream().anyMatch(f -> f.getName().equals("money_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.FLOAT8.getType())));
         assertTrue("Should contain SMALLMONEY field (mapped to FLOAT8)", fields.stream().anyMatch(f -> f.getName().equals("small_money_col") && f.getType().equals(org.apache.arrow.vector.types.Types.MinorType.FLOAT8.getType())));
@@ -427,5 +438,144 @@ public class DataLakeGen2MetadataHandlerTest
         };
 
         assertEquals(Arrays.toString(expectedTables), listTablesResponse.getTables().toString());
+    }
+
+    @Test
+    public void testDoGetDataSourceCapabilities()
+    {
+        BlockAllocator allocator = new BlockAllocatorImpl();
+        GetDataSourceCapabilitiesRequest request =
+                new GetDataSourceCapabilitiesRequest(federatedIdentity, "testQueryId", "testCatalog");
+
+        GetDataSourceCapabilitiesResponse response =
+                dataLakeGen2MetadataHandler.doGetDataSourceCapabilities(allocator, request);
+
+        Map<String, List<OptimizationSubType>> capabilities = response.getCapabilities();
+
+        assertEquals("testCatalog", response.getCatalogName());
+
+        // Verify filter pushdown capabilities
+        List<OptimizationSubType> filterPushdown = capabilities.get("supports_filter_pushdown");
+        assertNotNull("Expected supports_filter_pushdown capability to be present", filterPushdown);
+        assertEquals(2, filterPushdown.size());
+        assertTrue(filterPushdown.stream().anyMatch(subType -> subType.getSubType().equals("sorted_range_set")));
+        assertTrue(filterPushdown.stream().anyMatch(subType -> subType.getSubType().equals("nullable_comparison")));
+
+        // Verify complex expression pushdown capabilities
+        List<OptimizationSubType> complexPushdown = capabilities.get("supports_complex_expression_pushdown");
+        assertNotNull("Expected supports_complex_expression_pushdown capability to be present", complexPushdown);
+        assertEquals(1, complexPushdown.size());
+        OptimizationSubType complexSubType = complexPushdown.get(0);
+        assertEquals("supported_function_expression_types", complexSubType.getSubType());
+        assertNotNull("Expected function expression types to be present", complexSubType.getProperties());
+        assertFalse("Expected function expression types to be non-empty", complexSubType.getProperties().isEmpty());
+
+        // Verify top-n pushdown capabilities
+        List<OptimizationSubType> topNPushdown = capabilities.get("supports_top_n_pushdown");
+        assertNotNull("Expected supports_top_n_pushdown capability to be present", topNPushdown);
+        assertEquals(1, topNPushdown.size());
+        assertEquals("SUPPORTS_ORDER_BY", topNPushdown.get(0).getSubType());
+    }
+
+    @Test
+    public void testConvertDatasourceTypeToArrowWithDataLakeGen2Types()
+    {
+        ResultSetMetaData metaData = mock(ResultSetMetaData.class);
+        Map<String, String> configOptions = new HashMap<>();
+        int precision = 0;
+
+        Map<String, ArrowType> expectedMappings = new HashMap<>();
+        expectedMappings.put("BIT", org.apache.arrow.vector.types.Types.MinorType.TINYINT.getType());
+        expectedMappings.put("TINYINT", org.apache.arrow.vector.types.Types.MinorType.SMALLINT.getType());
+        expectedMappings.put("NUMERIC", org.apache.arrow.vector.types.Types.MinorType.FLOAT8.getType());
+        expectedMappings.put("SMALLMONEY", org.apache.arrow.vector.types.Types.MinorType.FLOAT8.getType());
+        expectedMappings.put("DATE", org.apache.arrow.vector.types.Types.MinorType.DATEDAY.getType());
+        expectedMappings.put("DATETIME", org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType());
+        expectedMappings.put("DATETIME2", org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType());
+        expectedMappings.put("SMALLDATETIME", org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType());
+        expectedMappings.put("DATETIMEOFFSET", org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType());
+
+        int index = 1;
+        for (Map.Entry<String, ArrowType> entry : expectedMappings.entrySet()) {
+            String dataLakeType = entry.getKey();
+            ArrowType expectedArrowType = entry.getValue();
+
+            try {
+                when(metaData.getColumnTypeName(index)).thenReturn(dataLakeType);
+
+                Optional<ArrowType> actual = dataLakeGen2MetadataHandler.convertDatasourceTypeToArrow(index, precision, configOptions, metaData);
+                assertTrue("Optional value is empty for type " + dataLakeType, actual.isPresent());
+                assertEquals("Failed for type " + dataLakeType, expectedArrowType, actual.get());
+
+                index++;
+            } catch (SQLException e) {
+                fail("SQLException occurred while testing type " + dataLakeType + ": " + e.getMessage());
+            }
+        }
+    }
+
+    @Test
+    public void testDoGetSplitsWithQueryPassthrough()
+    {
+        BlockAllocator blockAllocator = new BlockAllocatorImpl();
+        TableName tableName = new TableName("testSchema", "testTable");
+
+        // Create constraints with query passthrough enabled
+        Constraints constraints = mock(Constraints.class);
+        when(constraints.isQueryPassThrough()).thenReturn(true);
+
+        // Mock query passthrough arguments
+        Map<String, String> queryPassthroughArguments = new HashMap<>();
+        queryPassthroughArguments.put("queryPassthrough", "true");
+        when(constraints.getQueryPassthroughArguments()).thenReturn(queryPassthroughArguments);
+
+        GetSplitsRequest getSplitsRequest = new GetSplitsRequest(
+                federatedIdentity,
+                "testQueryId",
+                "testCatalog",
+                tableName,
+                mock(Block.class),
+                Collections.emptyList(),
+                constraints,
+                null
+        );
+
+        GetSplitsResponse getSplitsResponse = dataLakeGen2MetadataHandler.doGetSplits(blockAllocator, getSplitsRequest);
+
+        // Verify the response
+        assertNotNull(getSplitsResponse);
+        assertEquals(1, getSplitsResponse.getSplits().size());
+        Split split = getSplitsResponse.getSplits().iterator().next();
+        Map<String, String> properties = split.getProperties();
+        assertTrue("Split properties should contain query passthrough indicator", properties.containsKey("queryPassthrough"));
+        assertEquals("true", properties.get("queryPassthrough"));
+    }
+
+
+    @Test(expected = RuntimeException.class)
+    public void testGetSchemaWithDataTypeQueryError()
+    {
+        try {
+            TableName tableName = new TableName("testSchema", "testTable");
+
+            String[] columnSchema = {"DATA_TYPE", "COLUMN_SIZE", "COLUMN_NAME", "DECIMAL_DIGITS", "NUM_PREC_RADIX"};
+            Object[][] columnValues = {
+                    {Types.INTEGER, 12, "testCol1", 0, 0}
+            };
+            ResultSet columnResultSet = mockResultSet(columnSchema, columnValues, new AtomicInteger(-1));
+            when(connection.getMetaData().getColumns(any(), any(), any(), any())).thenReturn(columnResultSet);
+
+            when(connection.prepareStatement(any())).thenThrow(new RuntimeException(new SQLException("Test error")));
+
+            dataLakeGen2MetadataHandler.doGetTable(
+                    new BlockAllocatorImpl(),
+                    new GetTableRequest(federatedIdentity, "testQueryId", "testCatalog", tableName, Collections.emptyMap())
+            );
+        } catch (Exception e) {
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new RuntimeException(e);
+        }
     }
 }
