@@ -79,10 +79,10 @@ public class DataLakeRecordHandlerTest
         this.dataLakeGen2RecordHandler = new DataLakeGen2RecordHandler(databaseConnectionConfig, amazonS3, secretsManager, athena, jdbcConnectionFactory, jdbcSplitQueryBuilder, com.google.common.collect.ImmutableMap.of());
     }
 
-    private ValueSet getSingleValueSet(Object value) {
+    private ValueSet getSingleValueSet() {
         Range range = Mockito.mock(Range.class, Mockito.RETURNS_DEEP_STUBS);
         Mockito.when(range.isSingleValue()).thenReturn(true);
-        Mockito.when(range.getLow().getValue()).thenReturn(value);
+        Mockito.when(range.getLow().getValue()).thenReturn("varcharTest");
         ValueSet valueSet = Mockito.mock(SortedRangeSet.class, Mockito.RETURNS_DEEP_STUBS);
         Mockito.when(valueSet.getRanges().getOrderedRanges()).thenReturn(Collections.singletonList(range));
         return valueSet;
@@ -104,7 +104,7 @@ public class DataLakeRecordHandlerTest
         Split split = Mockito.mock(Split.class);
         Mockito.when(split.getProperty(DataLakeGen2MetadataHandler.PARTITION_NUMBER)).thenReturn("0");
 
-        ValueSet valueSet = getSingleValueSet("varcharTest");
+        ValueSet valueSet = getSingleValueSet();
         Constraints constraints = Mockito.mock(Constraints.class);
         Mockito.when(constraints.getSummary()).thenReturn(new ImmutableMap.Builder<String, ValueSet>()
                 .put("testCol4", valueSet)

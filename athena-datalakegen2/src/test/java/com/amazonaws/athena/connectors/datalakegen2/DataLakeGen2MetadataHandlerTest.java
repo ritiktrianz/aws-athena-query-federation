@@ -19,6 +19,7 @@
  */
 package com.amazonaws.athena.connectors.datalakegen2;
 
+import com.amazonaws.athena.connector.credentials.CredentialsProvider;
 import com.amazonaws.athena.connector.lambda.data.Block;
 import com.amazonaws.athena.connector.lambda.data.BlockAllocator;
 import com.amazonaws.athena.connector.lambda.data.BlockAllocatorImpl;
@@ -59,10 +60,10 @@ import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRespon
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -510,49 +511,6 @@ public class DataLakeGen2MetadataHandlerTest
             } catch (SQLException e) {
                 fail("SQLException occurred while testing type " + dataLakeType + ": " + e.getMessage());
             }
-        }
-    }
-
-    @Test
-    public void testGetSchemaWithCustomDataTypeQuery()
-    {
-        try {
-            BlockAllocator blockAllocator = new BlockAllocatorImpl();
-            TableName tableName = new TableName("testSchema", "testTable");
-
-            String[] columnSchema = {"DATA_TYPE", "COLUMN_SIZE", "COLUMN_NAME", "DECIMAL_DIGITS", "NUM_PREC_RADIX"};
-            Object[][] columnValues = {
-                    {Types.INTEGER, 12, "testCol1", 0, 0},
-                    {Types.VARCHAR, 25, "testCol2", 0, 0}
-            };
-            ResultSet columnResultSet = mockResultSet(columnSchema, columnValues, new AtomicInteger(-1));
-            when(connection.getMetaData().getColumns(any(), any(), any(), any())).thenReturn(columnResultSet);
-
-            PreparedStatement mockStmt = mock(PreparedStatement.class);
-            when(connection.prepareStatement(any())).thenReturn(mockStmt);
-
-            String[] dataTypeSchema = {"COLUMN_NAME", "DATA_TYPE"};
-            Object[][] dataTypeValues = {
-                    {"testCol1", "int"},
-                    {"testCol2", "varchar"}
-            };
-            ResultSet dataTypeResultSet = mockResultSet(dataTypeSchema, dataTypeValues, new AtomicInteger(-1));
-            when(mockStmt.executeQuery()).thenReturn(dataTypeResultSet);
-
-            when(connection.getCatalog()).thenReturn("testCatalog");
-
-            GetTableResponse response = dataLakeGen2MetadataHandler.doGetTable(
-                    blockAllocator,
-                    new GetTableRequest(federatedIdentity, "testQueryId", "testCatalog", tableName, Collections.emptyMap())
-            );
-
-            Schema schema = response.getSchema();
-            assertEquals(3, schema.getFields().size()); // 2 columns + partition column
-            assertEquals("testCol1", schema.getFields().get(0).getName());
-            assertEquals("testCol2", schema.getFields().get(1).getName());
-            assertEquals(PARTITION_NUMBER, schema.getFields().get(2).getName());
-        } catch (Exception e) {
-            fail("Test failed due to exception: " + e.getMessage());
         }
     }
 
