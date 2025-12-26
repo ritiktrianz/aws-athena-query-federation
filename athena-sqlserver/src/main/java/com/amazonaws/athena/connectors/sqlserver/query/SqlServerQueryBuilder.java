@@ -69,8 +69,8 @@ public class SqlServerQueryBuilder
     public SqlServerQueryBuilder withProjection(Schema schema, Split split)
     {
         this.projection = schema.getFields().stream()
-                .filter(field -> !split.getProperties().containsKey(field.getName()))
                 .map(Field::getName)
+                .filter(name -> !split.getProperties().containsKey(name))
                 .map(this::quote)
                 .collect(Collectors.toList());
         return this;
@@ -87,11 +87,6 @@ public class SqlServerQueryBuilder
     {
         this.conjuncts = SqlServerPredicateBuilder.buildConjuncts(
                 schema.getFields(), constraints, this.parameterValues, split);
-        
-        // Ensure conjuncts is not null
-        if (this.conjuncts == null) {
-            this.conjuncts = new ArrayList<>();
-        }
         
         // Add partition clauses if applicable
         List<String> partitionClauses = getPartitionWhereClauses(split);
@@ -122,7 +117,7 @@ public class SqlServerQueryBuilder
         return this;
     }
 
-    public SqlServerQueryBuilder withLimitClause(Constraints constraints)
+    public SqlServerQueryBuilder withLimitClause()
     {
         // SQL Server doesn't support LIMIT clause, return empty string
         this.limitClause = "";

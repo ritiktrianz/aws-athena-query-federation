@@ -100,7 +100,7 @@ public class SqlServerRecordHandler extends JdbcRecordHandler
             
             // Set parameters for the prepared statement
             if (!parameterValues.isEmpty()) {
-                setParameters(preparedStatement, parameterValues);
+                jdbcSplitQueryBuilder.setParameters(preparedStatement, parameterValues);
             }
         }
         // Disable fetching all rows.
@@ -108,72 +108,6 @@ public class SqlServerRecordHandler extends JdbcRecordHandler
         return preparedStatement;
     }
     
-    private void setParameters(PreparedStatement statement, List<TypeAndValue> parameterValues) throws SQLException
-    {
-        // Use the same parameter setting logic from JdbcSplitQueryBuilder
-        for (int i = 0; i < parameterValues.size(); i++) {
-            TypeAndValue typeAndValue = parameterValues.get(i);
-            if (typeAndValue == null || typeAndValue.getType() == null) {
-                throw new SQLException("TypeAndValue or type is null at index " + i);
-            }
-            org.apache.arrow.vector.types.Types.MinorType minorTypeForArrowType = 
-                org.apache.arrow.vector.types.Types.getMinorTypeForArrowType(typeAndValue.getType());
-            
-            if (minorTypeForArrowType == null) {
-                throw new SQLException("Cannot determine MinorType for ArrowType: " + typeAndValue.getType());
-            }
-
-            switch (minorTypeForArrowType) {
-                case BIGINT:
-                    statement.setLong(i + 1, (long) typeAndValue.getValue());
-                    break;
-                case INT:
-                    statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
-                    break;
-                case SMALLINT:
-                    statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
-                    break;
-                case TINYINT:
-                    statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
-                    break;
-                case FLOAT8:
-                    statement.setDouble(i + 1, (double) typeAndValue.getValue());
-                    break;
-                case FLOAT4:
-                    statement.setFloat(i + 1, (float) typeAndValue.getValue());
-                    break;
-                case BIT:
-                    statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
-                    break;
-                case DATEDAY:
-                    long utcMillis = java.util.concurrent.TimeUnit.DAYS.toMillis(((Number) typeAndValue.getValue()).longValue());
-                    java.util.TimeZone aDefault = java.util.TimeZone.getDefault();
-                    int offset = aDefault.getOffset(utcMillis);
-                    utcMillis -= offset;
-                    statement.setDate(i + 1, new java.sql.Date(utcMillis));
-                    break;
-                case DATEMILLI:
-                    java.time.LocalDateTime timestamp = ((java.time.LocalDateTime) typeAndValue.getValue());
-                    statement.setTimestamp(i + 1, new java.sql.Timestamp(timestamp.toInstant(java.time.ZoneOffset.UTC).toEpochMilli()));
-                    break;
-                case VARCHAR:
-                    statement.setString(i + 1, String.valueOf(typeAndValue.getValue()));
-                    break;
-                case VARBINARY:
-                    statement.setBytes(i + 1, (byte[]) typeAndValue.getValue());
-                    break;
-                case DECIMAL:
-                    statement.setBigDecimal(i + 1, (java.math.BigDecimal) typeAndValue.getValue());
-                    break;
-                default:
-                    throw new com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException(
-                        String.format("Can't handle type: %s, %s", typeAndValue.getType(), minorTypeForArrowType),
-                        software.amazon.awssdk.services.glue.model.ErrorDetails.builder()
-                            .errorCode(software.amazon.awssdk.services.glue.model.FederationSourceErrorCode.OPERATION_NOT_SUPPORTED_EXCEPTION.toString())
-                            .build());
-            }
-        }
-    }
 
     @Override
     protected CredentialsProvider getCredentialProvider()
