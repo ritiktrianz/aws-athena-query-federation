@@ -31,7 +31,6 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connector.credentials.CredentialsProvider;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.vector.types.Types;
@@ -49,7 +48,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Collections;
 
-import static com.amazonaws.athena.connectors.saphana.SaphanaConstants.SAPHANA_QUOTE_CHARACTER;
 import static org.mockito.ArgumentMatchers.nullable;
 
 public class SaphanaRecordHandlerTest
@@ -57,7 +55,6 @@ public class SaphanaRecordHandlerTest
     private SaphanaRecordHandler saphanaRecordHandler;
     private Connection connection;
     private JdbcConnectionFactory jdbcConnectionFactory;
-    private JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
     private S3Client amazonS3;
     private SecretsManagerClient secretsManager;
     private AthenaClient athena;
@@ -72,11 +69,10 @@ public class SaphanaRecordHandlerTest
         this.connection = Mockito.mock(Connection.class);
         this.jdbcConnectionFactory = Mockito.mock(JdbcConnectionFactory.class);
         Mockito.when(this.jdbcConnectionFactory.getConnection(nullable(CredentialsProvider.class))).thenReturn(this.connection);
-        jdbcSplitQueryBuilder = new SaphanaQueryStringBuilder(SAPHANA_QUOTE_CHARACTER, new SaphanaFederationExpressionParser(SAPHANA_QUOTE_CHARACTER));
         final DatabaseConnectionConfig databaseConnectionConfig = new DatabaseConnectionConfig("testCatalog", SaphanaConstants.SAPHANA_NAME,
                 "saphana://jdbc:saphana://115.113.87.100/TMODE=ANSI,CHARSET=UTF8,DATABASE=TEST,USER=DBC,PASSWORD=DBC");
 
-        this.saphanaRecordHandler = new SaphanaRecordHandler(databaseConnectionConfig, amazonS3, secretsManager, athena, jdbcConnectionFactory, jdbcSplitQueryBuilder, com.google.common.collect.ImmutableMap.of());
+        this.saphanaRecordHandler = new SaphanaRecordHandler(databaseConnectionConfig, amazonS3, secretsManager, athena, jdbcConnectionFactory, com.google.common.collect.ImmutableMap.of());
     }
 
     private ValueSet getSingleValueSet(Object value) {
