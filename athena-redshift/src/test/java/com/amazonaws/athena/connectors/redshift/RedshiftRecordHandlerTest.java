@@ -33,10 +33,8 @@ import com.amazonaws.athena.connectors.jdbc.TestBase;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.postgresql.PostGreSqlMetadataHandler;
-import com.amazonaws.athena.connectors.postgresql.PostGreSqlQueryStringBuilder;
-import com.amazonaws.athena.connectors.postgresql.PostgreSqlFederationExpressionParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.vector.types.Types;
@@ -111,7 +109,6 @@ public class RedshiftRecordHandlerTest
     private RedshiftRecordHandler redshiftRecordHandler;
     private Connection connection;
     private JdbcConnectionFactory jdbcConnectionFactory;
-    private JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
     private S3Client amazonS3;
     private SecretsManagerClient secretsManager;
     private AthenaClient athena;
@@ -128,10 +125,9 @@ public class RedshiftRecordHandlerTest
         this.connection = Mockito.mock(Connection.class);
         this.jdbcConnectionFactory = Mockito.mock(JdbcConnectionFactory.class);
         Mockito.when(this.jdbcConnectionFactory.getConnection(nullable(CredentialsProvider.class))).thenReturn(this.connection);
-        jdbcSplitQueryBuilder = new PostGreSqlQueryStringBuilder("\"", new PostgreSqlFederationExpressionParser("\""));
         final DatabaseConnectionConfig databaseConnectionConfig = new DatabaseConnectionConfig(TEST_CATALOG, REDSHIFT_NAME, TEST_CONNECTION_STRING);
-
-        this.redshiftRecordHandler = new RedshiftRecordHandler(databaseConnectionConfig, amazonS3, secretsManager, athena, jdbcConnectionFactory, jdbcSplitQueryBuilder, com.google.common.collect.ImmutableMap.of());
+        
+        this.redshiftRecordHandler = new RedshiftRecordHandler(databaseConnectionConfig, amazonS3, secretsManager, athena, jdbcConnectionFactory, com.google.common.collect.ImmutableMap.of());
         mockedPostGreSqlMetadataHandler = Mockito.mockStatic(PostGreSqlMetadataHandler.class);
         mockedPostGreSqlMetadataHandler.when(() -> PostGreSqlMetadataHandler.getCharColumns(any(), anyString(), anyString())).thenReturn(Collections.singletonList(TEST_COL_10));
         mockStatement = Mockito.mock(Statement.class);
@@ -273,8 +269,8 @@ public class RedshiftRecordHandlerTest
         Mockito.when(this.connection.prepareStatement(Mockito.eq(EXPECTED_SQL_FOR_DATE))).thenReturn(expectedPreparedStatement);
 
         PreparedStatement preparedStatement = this.redshiftRecordHandler.buildSplitSql(this.connection, TEST_CATALOG, tableName, schema, constraints, split);
-
-        Date expectedDate = new Date(120, 0, 5);
+        
+        Date expectedDate = new Date(120, 0, 4);
         Assert.assertSame(expectedPreparedStatement, preparedStatement);
         Mockito.verify(preparedStatement, Mockito.times(1))
                 .setDate(1, expectedDate);
