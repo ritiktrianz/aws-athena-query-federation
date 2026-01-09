@@ -1,0 +1,25 @@
+import "JdbcBase.stg"
+
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: SaphanaQueryBuilder.java
+ *@Description: This template is used to build SAP HANA SELECT statements with constraints, ordering, and limits.
+ *@param builder An Instance of SaphanaQueryBuilder.
+ *@return A SQL query that can be executed by SAP HANA.
+ */
+select_query(builder) ::= <%
+    SELECT <if(builder.projection)><builder.projection:{col|<col>}; separator=", "><else>null<endif> FROM <if(builder.catalog)><builder.catalog>.<endif><if(builder.schemaName)><builder.schemaName>.<endif><builder.tableName><if(builder.partitionClause)> <builder.partitionClause><endif><if(builder.conjuncts)>  WHERE <builder.conjuncts:{conjunct|<conjunct>}; separator=" AND "><endif><if(builder.orderByClause)> <builder.orderByClause><endif><if(builder.limitClause)> <builder.limitClause><endif>
+%>
+
+/**
+ *@UsedBy: SaphanaQueryBuilder.java
+ *@Description: Template for SAP HANA PARTITION clause used in FROM clause.
+ *@param partitionValue The partition value to filter on.
+ *@return A partition clause like PARTITION (1)
+ */
+partition_clause(partitionValue) ::= <%
+PARTITION (<partitionValue>)
+%>

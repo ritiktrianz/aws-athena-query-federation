@@ -19,13 +19,19 @@
  */
 package com.amazonaws.athena.connectors.saphana;
 
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcFederationExpressionParser;
-import com.google.common.base.Joiner;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcQueryFactory;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
+import com.amazonaws.athena.connectors.jdbc.manager.TemplateBasedJdbcFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 import java.util.List;
 
-public class SaphanaFederationExpressionParser extends JdbcFederationExpressionParser
+/**
+ * SAP HANA implementation of FederationExpressionParser using StringTemplate.
+ * Extends TemplateBasedJdbcFederationExpressionParser which provides the common
+ * template-based implementation for all migrated JDBC connectors.
+ */
+public class SaphanaFederationExpressionParser extends TemplateBasedJdbcFederationExpressionParser
 {
     public SaphanaFederationExpressionParser(String quoteChar)
     {
@@ -33,8 +39,18 @@ public class SaphanaFederationExpressionParser extends JdbcFederationExpressionP
     }
 
     @Override
+    protected JdbcQueryFactory getQueryFactory()
+    {
+        return SaphanaSqlUtils.getQueryFactory();
+    }
+
+    @Override
     public String writeArrayConstructorClause(ArrowType type, List<String> arguments)
     {
-        return Joiner.on(", ").join(arguments);
+        // SAP HANA uses comma-separated list without parentheses for array constructor
+        return JdbcSqlUtils.renderTemplate(
+                getQueryFactory(),
+                "comma_separated_list",
+                java.util.Map.of("items", arguments));
     }
 }

@@ -32,11 +32,11 @@ import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFact
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
@@ -46,19 +46,20 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-
-import static com.amazonaws.athena.connectors.saphana.SaphanaConstants.SAPHANA_QUOTE_CHARACTER;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SaphanaRecordHandler extends JdbcRecordHandler
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SaphanaRecordHandler.class);
 
     private static final int FETCH_SIZE = 1000;
-    private final JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
+    
     public SaphanaRecordHandler(java.util.Map<String, String> configOptions)
     {
         this(JDBCUtil.getSingleDatabaseConfigFromEnv(SaphanaConstants.SAPHANA_NAME, configOptions), configOptions);
     }
+    
     public SaphanaRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, java.util.Map<String, String> configOptions)
     {
         this(databaseConnectionConfig, new GenericJdbcConnectionFactory(databaseConnectionConfig,
@@ -66,36 +67,43 @@ public class SaphanaRecordHandler extends JdbcRecordHandler
                 new DatabaseConnectionInfo(SaphanaConstants.SAPHANA_DRIVER_CLASS,
                         SaphanaConstants.SAPHANA_DEFAULT_PORT)), configOptions);
     }
+    
     @VisibleForTesting
-    SaphanaRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
+    SaphanaRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
-        this.jdbcSplitQueryBuilder = Validate.notNull(jdbcSplitQueryBuilder, "query builder must not be null");
     }
 
     public SaphanaRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, GenericJdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         this(databaseConnectionConfig, S3Client.create(), SecretsManagerClient.create(),
-                AthenaClient.create(), jdbcConnectionFactory, new SaphanaQueryStringBuilder(SAPHANA_QUOTE_CHARACTER, new SaphanaFederationExpressionParser(SAPHANA_QUOTE_CHARACTER)), configOptions);
+                AthenaClient.create(), jdbcConnectionFactory, configOptions);
     }
 
     @Override
     public PreparedStatement buildSplitSql(Connection jdbcConnection, String catalogName, TableName tableName,
                                            Schema schema, Constraints constraints, Split split) throws SQLException
     {
-        LOGGER.debug("SaphanaQueryStringBuilder::buildSplitSql SplitQueryBuilder class {}",
-                jdbcSplitQueryBuilder.getClass().getName());
         PreparedStatement preparedStatement;
 
         if (constraints.isQueryPassThrough()) {
             preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
         }
         else {
-            preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null,
-                    tableName.getSchemaName(), tableName.getTableName(), schema, constraints, split);
+            // Use StringTemplate-based query building
+            List<TypeAndValue> parameterValues = new ArrayList<>();
+            String sql = SaphanaSqlUtils.buildSql(tableName, schema, constraints, split, parameterValues);
+            
+            LOGGER.info("Generated SQL : {}", sql);
+            preparedStatement = jdbcConnection.prepareStatement(sql);
+            
+            // Set parameters for the prepared statement
+            if (!parameterValues.isEmpty()) {
+                JdbcSqlUtils.setParameters(preparedStatement, parameterValues);
+            }
         }
 
-        LOGGER.debug("SaphanaQueryStringBuilder::buildSplitSql clearing field children from schema");
+        LOGGER.debug("SaphanaRecordHandler::buildSplitSql clearing field children from schema");
         clearChildren(schema);
 
         // Disable fetching all rows.
