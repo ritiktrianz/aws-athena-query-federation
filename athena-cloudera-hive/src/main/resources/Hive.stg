@@ -1,0 +1,30 @@
+import "JdbcBase.stg"
+
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: HiveQueryBuilder.java
+ *@Description: This template is used to build Hive SELECT statements with constraints, ordering, and limits.
+ *@param builder An Instance of HiveQueryBuilder.
+ *@return A SQL query that can be executed by Hive.
+ */
+select_query(builder) ::= <%
+    SELECT <if(builder.projection)><builder.projection:{col|<col>}; separator=", "><else>null<endif> 
+    FROM <if(builder.catalog)><builder.catalog>.<endif><if(builder.schemaName)><builder.schemaName>.<endif><builder.tableName>
+    <if(builder.conjuncts)>  WHERE <builder.conjuncts:{conjunct|<conjunct>}; separator=" AND "><endif>
+    <if(builder.orderByClause)> <builder.orderByClause><endif>
+    <if(builder.limitClause)> <builder.limitClause><endif>
+%>
+
+/**
+ *@UsedBy: HivePredicateBuilder.java
+ *@Description: Template for date comparison predicates with casting in Hive.
+ *@param columnName The column name (with quotes).
+ *@param operator The comparison operator.
+ *@return A date comparison predicate like "column" = cast(? as timestamp)
+ */
+date_comparison_predicate(columnName, operator) ::= <%
+    <columnName> <operator> cast(? as timestamp)
+%>
