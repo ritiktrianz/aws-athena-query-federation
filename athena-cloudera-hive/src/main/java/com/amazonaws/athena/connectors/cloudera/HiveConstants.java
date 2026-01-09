@@ -30,10 +30,10 @@ public class HiveConstants
     }
 
     static final Map<String, String> JDBC_PROPERTIES = ImmutableMap.of("databaseTerm", "SCHEMA");
-    static final String BLOCK_PARTITION_COLUMN_NAME = "partition";
+    public static final String BLOCK_PARTITION_COLUMN_NAME = "partition";
     static final int MAX_SPLITS_PER_REQUEST = 1000_000;
     static final String COLUMN_NAME = "COLUMN_NAME";
-    static final String HIVE_QUOTE_CHARACTER = "";
+    public static final String HIVE_QUOTE_CHARACTER = "";
     static final int FETCH_SIZE = 1000;
     static final String ALL_PARTITIONS = "*";
     public static final String HIVE_NAME = "hive";
