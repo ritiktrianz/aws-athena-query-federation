@@ -27,10 +27,12 @@ import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionInfo;
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
@@ -38,17 +40,19 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.amazonaws.athena.connectors.cloudera.HiveConstants.FETCH_SIZE;
 import static com.amazonaws.athena.connectors.cloudera.HiveConstants.HIVE_DEFAULT_PORT;
 import static com.amazonaws.athena.connectors.cloudera.HiveConstants.HIVE_DRIVER_CLASS;
 import static com.amazonaws.athena.connectors.cloudera.HiveConstants.HIVE_NAME;
-import static com.amazonaws.athena.connectors.cloudera.HiveConstants.HIVE_QUOTE_CHARACTER;
 import static com.amazonaws.athena.connectors.cloudera.HiveConstants.JDBC_PROPERTIES;
 
 public class HiveRecordHandler extends JdbcRecordHandler
 {
-    private final JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
+    private static final Logger LOGGER = LoggerFactory.getLogger(HiveRecordHandler.class);
+    
     public HiveRecordHandler(java.util.Map<String, String> configOptions)
     {
         this(JDBCUtil.getSingleDatabaseConfigFromEnv(HIVE_NAME, configOptions), configOptions);
@@ -60,13 +64,12 @@ public class HiveRecordHandler extends JdbcRecordHandler
     public HiveRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         this(databaseConnectionConfig, S3Client.create(), SecretsManagerClient.create(), AthenaClient.create(),
-                jdbcConnectionFactory, new HiveQueryStringBuilder(HIVE_QUOTE_CHARACTER, new HiveFederationExpressionParser(HIVE_QUOTE_CHARACTER)), configOptions);
+                jdbcConnectionFactory, configOptions);
     }
     @VisibleForTesting
-    HiveRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
+    HiveRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
-        this.jdbcSplitQueryBuilder = Validate.notNull(jdbcSplitQueryBuilder, "query builder must not be null");
     }
     @Override
     public PreparedStatement buildSplitSql(Connection jdbcConnection, String catalogName, TableName tableName, Schema schema, Constraints constraints, Split split) throws SQLException
@@ -77,8 +80,19 @@ public class HiveRecordHandler extends JdbcRecordHandler
             preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
         }
         else {
-            preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null, tableName.getSchemaName(), tableName.getTableName(), schema, constraints, split);
+            // Use StringTemplate-based query building
+            List<TypeAndValue> parameterValues = new ArrayList<>();
+            String sql = HiveSqlUtils.buildSql(tableName, schema, constraints, split, parameterValues);
+            
+            LOGGER.info("Generated SQL: {}", sql);
+            preparedStatement = jdbcConnection.prepareStatement(sql);
+            
+            // Set parameters for the prepared statement
+            if (!parameterValues.isEmpty()) {
+                JdbcSqlUtils.setParameters(preparedStatement, parameterValues);
+            }
         }
+        // Disable fetching all rows.
         preparedStatement.setFetchSize(FETCH_SIZE);
         return preparedStatement;
     }
