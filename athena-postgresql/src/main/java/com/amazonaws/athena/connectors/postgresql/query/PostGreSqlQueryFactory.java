@@ -28,7 +28,7 @@ import java.sql.Connection;
  */
 public class PostGreSqlQueryFactory extends JdbcQueryFactory
 {
-    private static final String TEMPLATE_FILE = "PostgreSql.stg";
+    private static final String TEMPLATE_FILE = "JdbcBase.stg";
     
     public PostGreSqlQueryFactory()
     {
