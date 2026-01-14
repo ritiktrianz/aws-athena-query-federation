@@ -19,13 +19,15 @@
  */
 package com.amazonaws.athena.connectors.cloudera;
 
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcFederationExpressionParser;
-import com.google.common.base.Joiner;
-import org.apache.arrow.vector.types.pojo.ArrowType;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcQueryFactory;
+import com.amazonaws.athena.connectors.jdbc.manager.TemplateBasedJdbcFederationExpressionParser;
 
-import java.util.List;
-
-public class HiveFederationExpressionParser extends JdbcFederationExpressionParser
+/**
+ * Hive implementation of FederationExpressionParser using StringTemplate.
+ * Extends TemplateBasedJdbcFederationExpressionParser which provides the common
+ * template-based implementation for all migrated JDBC connectors.
+ */
+public class HiveFederationExpressionParser extends TemplateBasedJdbcFederationExpressionParser
 {
     public HiveFederationExpressionParser(String quoteChar)
     {
@@ -33,8 +35,8 @@ public class HiveFederationExpressionParser extends JdbcFederationExpressionPars
     }
 
     @Override
-    public String writeArrayConstructorClause(ArrowType type, List<String> arguments)
+    protected JdbcQueryFactory getQueryFactory()
     {
-        return Joiner.on(", ").join(arguments);
-    }    
+        return HiveSqlUtils.getQueryFactory();
+    }
 }
