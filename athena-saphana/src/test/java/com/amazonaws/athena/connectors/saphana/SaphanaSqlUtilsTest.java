@@ -89,7 +89,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithConstraintsRanges_GeneratesQueryWithWhereClause()
     {
-        constraintMap.clear();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -109,7 +108,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithInPredicate_GeneratesQueryWithInClause()
     {
-        constraintMap.clear();
         ValueSet inSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 20), Marker.exactly(allocator, INT_TYPE, 20)))
@@ -132,7 +130,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithOrderBy_GeneratesQueryWithOrderBy()
     {
-        constraintMap.clear();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -155,7 +152,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithLimit_GeneratesQueryWithLimit()
     {
-        constraintMap.clear();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -175,7 +171,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithNullPredicate_GeneratesQueryWithIsNull()
     {
-        constraintMap.clear();
         ValueSet nullSet = SortedRangeSet.newBuilder(INT_TYPE, true).build();
         constraintMap.put("intCol", nullSet);
 
@@ -192,7 +187,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithNotNullPredicate_GeneratesQueryWithIsNotNull()
     {
-        constraintMap.clear();
         ValueSet notNullSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.lowerUnbounded(allocator, INT_TYPE), Marker.upperUnbounded(allocator, INT_TYPE)))
                 .build();
@@ -211,7 +205,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithPartitionClause_GeneratesQueryWithPartitionInFrom()
     {
-        constraintMap.clear();
         Schema schema = makeSchema(constraintMap);
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 
@@ -234,7 +227,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithAllPartitions_DoesNotIncludePartitionClause()
     {
-        constraintMap.clear();
         Schema schema = makeSchema(constraintMap);
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 
@@ -257,7 +249,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithMultipleColumns_GeneratesQueryWithAllColumns()
     {
-        constraintMap.clear();
         ValueSet intSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -281,7 +272,6 @@ public class SaphanaSqlUtilsTest
     @Test
     public void buildSql_WithEmptySchema_GeneratesQueryWithNull()
     {
-        constraintMap.clear();
         Schema emptySchema = new Schema(Collections.emptyList());
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 

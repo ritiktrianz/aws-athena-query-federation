@@ -333,6 +333,103 @@ public class SaphanaQueryBuilderTest
         assertFalse("SQL should not contain catalog", sql.contains("catalog"));
     }
 
+    @Test
+    public void transformColumnForProjection_WithSpatialFunction_ReturnsFunctionWithQuotedFieldName()
+    {
+        SaphanaQueryBuilder builder = queryFactory.createQueryBuilder();
+        
+        // Create a field with a child that has a spatial function name matching ST_([a-zA-Z]+)()
+        Field childField = new Field("ST_AsWKT()", new FieldType(true, STRING_TYPE, null), null);
+        Field spatialField = new Field("geometry_column", new FieldType(true, STRING_TYPE, null), 
+                Collections.singletonList(childField));
+        
+        String result = builder.transformColumnForProjection(spatialField);
+        
+        assertEquals("Should return spatial function with quoted field name", 
+                "ST_AsWKT() \"geometry_column\"", result);
+    }
+
+    @Test
+    public void transformColumnForProjection_WithSpatialFunctionVariations_ReturnsFunctionWithQuotedFieldName()
+    {
+        SaphanaQueryBuilder builder = queryFactory.createQueryBuilder();
+        
+        // Test different spatial function patterns
+        String[] spatialFunctions = {"ST_AsWKT()", "ST_AsText()", "ST_AsBinary()", "ST_AsGeoJSON()"};
+        
+        for (String functionName : spatialFunctions) {
+            Field childField = new Field(functionName, new FieldType(true, STRING_TYPE, null), null);
+            Field spatialField = new Field("geom", new FieldType(true, STRING_TYPE, null), 
+                    Collections.singletonList(childField));
+            
+            String result = builder.transformColumnForProjection(spatialField);
+            
+            assertEquals("Should return spatial function with quoted field name for " + functionName,
+                    functionName + " \"geom\"", result);
+        }
+    }
+
+    @Test
+    public void transformColumnForProjection_WithChildNotMatchingPattern_ReturnsQuotedFieldName()
+    {
+        SaphanaQueryBuilder builder = queryFactory.createQueryBuilder();
+        
+        // Create a field with a child that doesn't match the ST_ pattern
+        Field childField = new Field("regular_field", new FieldType(true, STRING_TYPE, null), null);
+        Field fieldWithChild = new Field("test_column", new FieldType(true, STRING_TYPE, null), 
+                Collections.singletonList(childField));
+        
+        String result = builder.transformColumnForProjection(fieldWithChild);
+        
+        assertEquals("Should return only quoted field name when child doesn't match pattern", 
+                "\"test_column\"", result);
+    }
+
+    @Test
+    public void transformColumnForProjection_WithNullChildName_ReturnsQuotedFieldName()
+    {
+        SaphanaQueryBuilder builder = queryFactory.createQueryBuilder();
+        
+        // Create a field with a child that has null name
+        Field childField = new Field(null, new FieldType(true, STRING_TYPE, null), null);
+        Field fieldWithNullChild = new Field("test_column", new FieldType(true, STRING_TYPE, null), 
+                Collections.singletonList(childField));
+        
+        String result = builder.transformColumnForProjection(fieldWithNullChild);
+        
+        assertEquals("Should return only quoted field name when child name is null", 
+                "\"test_column\"", result);
+    }
+
+    @Test
+    public void transformColumnForProjection_WithNoChildren_ReturnsQuotedFieldName()
+    {
+        SaphanaQueryBuilder builder = queryFactory.createQueryBuilder();
+        
+        // Create a field without children
+        Field simpleField = new Field("simple_column", new FieldType(true, STRING_TYPE, null), null);
+        
+        String result = builder.transformColumnForProjection(simpleField);
+        
+        assertEquals("Should return only quoted field name when field has no children", 
+                "\"simple_column\"", result);
+    }
+
+    @Test
+    public void transformColumnForProjection_WithEmptyChildren_ReturnsQuotedFieldName()
+    {
+        SaphanaQueryBuilder builder = queryFactory.createQueryBuilder();
+        
+        // Create a field with empty children list
+        Field fieldWithEmptyChildren = new Field("test_column", new FieldType(true, STRING_TYPE, null), 
+                Collections.emptyList());
+        
+        String result = builder.transformColumnForProjection(fieldWithEmptyChildren);
+        
+        assertEquals("Should return only quoted field name when field has empty children", 
+                "\"test_column\"", result);
+    }
+
     private Schema createTestSchema()
     {
         List<Field> fields = new ArrayList<>();

@@ -80,7 +80,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithSingleValueRange_ReturnsEqualityPredicate()
     {
-        constraintMap.clear();
         ValueSet singleValueSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -99,7 +98,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangePredicate_ReturnsRangePredicate()
     {
-        constraintMap.clear();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -118,7 +116,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithMultipleSingleValues_ReturnsInPredicate()
     {
-        constraintMap.clear();
         ValueSet inSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 20), Marker.exactly(allocator, INT_TYPE, 20)))
@@ -139,7 +136,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithNullValueSet_ReturnsIsNullPredicate()
     {
-        constraintMap.clear();
         ValueSet nullSet = SortedRangeSet.newBuilder(INT_TYPE, true).build();
         constraintMap.put("intCol", nullSet);
 
@@ -155,7 +151,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithUnboundedRange_ReturnsIsNotNullPredicate()
     {
-        constraintMap.clear();
         ValueSet notNullSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.lowerUnbounded(allocator, INT_TYPE), Marker.upperUnbounded(allocator, INT_TYPE)))
                 .build();
@@ -173,7 +168,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithNullAllowedRange_ReturnsOrPredicateWithIsNull()
     {
-        constraintMap.clear();
         ValueSet rangeWithNull = SortedRangeSet.newBuilder(INT_TYPE, true)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -191,7 +185,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithPartitionColumn_FiltersOutPartitionColumn()
     {
-        constraintMap.clear();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -217,7 +210,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithStringType_ReturnsStringPredicate()
     {
-        constraintMap.clear();
         ValueSet stringSet = SortedRangeSet.newBuilder(STRING_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, STRING_TYPE, "test"), Marker.exactly(allocator, STRING_TYPE, "test")))
                 .build();
@@ -235,7 +227,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithBooleanType_ReturnsBooleanPredicate()
     {
-        constraintMap.clear();
         ValueSet booleanSet = SortedRangeSet.newBuilder(BOOLEAN_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, BOOLEAN_TYPE, true), Marker.exactly(allocator, BOOLEAN_TYPE, true)))
                 .build();
@@ -253,7 +244,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithMultipleColumns_ReturnsMultipleConjuncts()
     {
-        constraintMap.clear();
         ValueSet intSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -277,8 +267,6 @@ public class SaphanaPredicateBuilderTest
     @Test
     public void buildConjuncts_WithEmptyConstraints_ReturnsEmptyOrComplexExpressions()
     {
-        constraintMap.clear();
-
         fields.add(Field.nullable("intCol", INT_TYPE));
 
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
