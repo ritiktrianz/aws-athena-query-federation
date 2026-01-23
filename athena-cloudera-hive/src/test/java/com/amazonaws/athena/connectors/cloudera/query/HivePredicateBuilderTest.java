@@ -246,43 +246,43 @@ public class HivePredicateBuilderTest
     }
 
     @Test
-    public void buildConjuncts_WithDateType_ReturnsDatePredicateWithCast()
+    public void buildConjuncts_WithTimestampType_ReturnsTimestampPredicateWithCast()
     {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         LocalDateTime timestamp = LocalDateTime.parse("2024-10-03 12:34:56", formatter);
-        ValueSet dateSet = SortedRangeSet.newBuilder(DATEMILLI_TYPE, false)
+        ValueSet timestampSet = SortedRangeSet.newBuilder(DATEMILLI_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, DATEMILLI_TYPE, timestamp), Marker.exactly(allocator, DATEMILLI_TYPE, timestamp)))
                 .build();
-        constraintMap.put("dateCol", dateSet);
+        constraintMap.put("timestampCol", timestampSet);
 
-        fields.add(Field.nullable("dateCol", DATEMILLI_TYPE));
+        fields.add(Field.nullable("timestampCol", DATEMILLI_TYPE));
 
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain dateCol", conjuncts.get(0).contains("dateCol"));
+        assertTrue("Conjunct should contain timestampCol", conjuncts.get(0).contains("timestampCol"));
         assertTrue("Conjunct should contain cast(? as timestamp)", conjuncts.get(0).contains("cast(? as timestamp)"));
         assertTrue("Conjunct should contain = operator", conjuncts.get(0).contains("="));
         assertEquals("Should have one parameter", 1, parameterValues.size());
     }
 
     @Test
-    public void buildConjuncts_WithDateTypeRange_ReturnsDateRangePredicateWithCast()
+    public void buildConjuncts_WithTimestampTypeRange_ReturnsTimestampRangePredicateWithCast()
     {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         LocalDateTime timestamp1 = LocalDateTime.parse("2024-10-03 12:34:56", formatter);
         LocalDateTime timestamp2 = LocalDateTime.parse("2024-10-04 12:34:56", formatter);
-        ValueSet dateRangeSet = SortedRangeSet.newBuilder(DATEMILLI_TYPE, false)
+        ValueSet timestampRangeSet = SortedRangeSet.newBuilder(DATEMILLI_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, DATEMILLI_TYPE, timestamp1), Marker.exactly(allocator, DATEMILLI_TYPE, timestamp2)))
                 .build();
-        constraintMap.put("dateCol", dateRangeSet);
+        constraintMap.put("timestampCol", timestampRangeSet);
 
-        fields.add(Field.nullable("dateCol", DATEMILLI_TYPE));
+        fields.add(Field.nullable("timestampCol", DATEMILLI_TYPE));
 
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain dateCol", conjuncts.get(0).contains("dateCol"));
+        assertTrue("Conjunct should contain timestampCol", conjuncts.get(0).contains("timestampCol"));
         assertTrue("Conjunct should contain cast(? as timestamp)", conjuncts.get(0).contains("cast(? as timestamp)"));
         assertEquals("Should have two parameters", 2, parameterValues.size());
     }

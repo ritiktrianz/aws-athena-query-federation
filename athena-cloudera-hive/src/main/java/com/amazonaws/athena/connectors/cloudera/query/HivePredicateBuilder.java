@@ -63,7 +63,7 @@ public class HivePredicateBuilder extends JdbcPredicateBuilder
                                  List<TypeAndValue> parameterValues)
     {
         Types.MinorType minorType = Types.getMinorTypeForArrowType(type);
-        boolean isDateType = minorType.equals(Types.MinorType.DATEMILLI);
+        boolean isTimestampType = minorType.equals(Types.MinorType.DATEMILLI);
         
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
@@ -96,7 +96,7 @@ public class HivePredicateBuilder extends JdbcPredicateBuilder
                         switch (range.getLow().getBound()) {
                             case ABOVE:
                                 parameterValues.add(new TypeAndValue(type, range.getLow().getValue()));
-                                if (isDateType) {
+                                if (isTimestampType) {
                                     rangeConjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "date_comparison_predicate", Map.of("columnName", quote(columnName), "operator", ">")));
                                 }
                                 else {
@@ -105,7 +105,7 @@ public class HivePredicateBuilder extends JdbcPredicateBuilder
                                 break;
                             case EXACTLY:
                                 parameterValues.add(new TypeAndValue(type, range.getLow().getValue()));
-                                if (isDateType) {
+                                if (isTimestampType) {
                                     rangeConjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "date_comparison_predicate", Map.of("columnName", quote(columnName), "operator", ">=")));
                                 }
                                 else {
@@ -124,7 +124,7 @@ public class HivePredicateBuilder extends JdbcPredicateBuilder
                                 throw new IllegalArgumentException("High marker should never use ABOVE bound");
                             case EXACTLY:
                                 parameterValues.add(new TypeAndValue(type, range.getHigh().getValue()));
-                                if (isDateType) {
+                                if (isTimestampType) {
                                     rangeConjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "date_comparison_predicate", Map.of("columnName", quote(columnName), "operator", "<=")));
                                 }
                                 else {
@@ -133,7 +133,7 @@ public class HivePredicateBuilder extends JdbcPredicateBuilder
                                 break;
                             case BELOW:
                                 parameterValues.add(new TypeAndValue(type, range.getHigh().getValue()));
-                                if (isDateType) {
+                                if (isTimestampType) {
                                     rangeConjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "date_comparison_predicate", Map.of("columnName", quote(columnName), "operator", "<")));
                                 }
                                 else {
@@ -153,7 +153,7 @@ public class HivePredicateBuilder extends JdbcPredicateBuilder
             // Add back all the possible single values either as an equality or an IN predicate
             if (singleValues.size() == 1) {
                 parameterValues.add(new TypeAndValue(type, Iterables.getOnlyElement(singleValues)));
-                if (isDateType) {
+                if (isTimestampType) {
                     disjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "date_comparison_predicate", Map.of("columnName", quote(columnName), "operator", "=")));
                 }
                 else {

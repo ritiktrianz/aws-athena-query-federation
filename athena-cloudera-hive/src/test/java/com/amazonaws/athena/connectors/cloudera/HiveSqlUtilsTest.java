@@ -241,20 +241,6 @@ public class HiveSqlUtilsTest
         assertEquals("Parameter count should match", 0, parameterValues.size());
     }
 
-    @Test
-    public void buildSql_WithCatalog_GeneratesQueryWithCatalog()
-    {
-        Schema schema = makeSchema(Collections.emptyMap());
-        Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
-
-        String expectedSql = "SELECT null FROM test_schema.test_table";
-        
-        List<TypeAndValue> parameterValues = new ArrayList<>();
-        String sql = HiveSqlUtils.buildSql(tableName, schema, constraints, split, parameterValues);
-        
-        assertEquals("SQL should match expected", expectedSql, sql);
-        assertEquals("Parameter count should match", 0, parameterValues.size());
-    }
 
     @Test
     public void buildSql_WithLimit_GeneratesQueryWithLimit()

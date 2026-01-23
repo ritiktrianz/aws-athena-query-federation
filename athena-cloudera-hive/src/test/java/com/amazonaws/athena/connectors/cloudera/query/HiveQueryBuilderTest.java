@@ -62,10 +62,6 @@ public class HiveQueryBuilderTest
     private static final String COLUMN_SCORE = "score";
     private static final String PARTITION_COLUMN = "partition";
 
-    private static final String SQL_SHOULD_CONTAIN_SELECT = "SQL should contain SELECT";
-    private static final String SQL_SHOULD_CONTAIN_ALL_COLUMNS = "SQL should contain all columns";
-    private static final String SQL_SHOULD_CONTAIN_FROM_CLAUSE = "SQL should contain FROM clause";
-
     private HiveQueryFactory queryFactory;
     private Schema testSchema;
     private Split split;
@@ -96,15 +92,8 @@ public class HiveQueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("id"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("name"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("active"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("score"));
-        assertTrue(SQL_SHOULD_CONTAIN_FROM_CLAUSE, sql.contains("FROM test_schema.test_table"));
-        // Partition column should be filtered out
-        assertFalse("Partition column should be excluded", sql.contains("partition"));
+        String expectedSql = "SELECT id, name, active, score FROM test_schema.test_table";
+        assertEquals("SQL should match expected query", expectedSql, sql);
     }
 
     @Test
@@ -117,17 +106,15 @@ public class HiveQueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain catalog", sql.contains("test_catalog"));
-        assertTrue("SQL should contain schema", sql.contains("test_schema"));
-        assertTrue("SQL should contain table", sql.contains("test_table"));
+        String expectedSql = "SELECT id, name, active, score FROM test_catalog.test_schema.test_table";
+        assertEquals("SQL should match expected query with catalog", expectedSql, sql);
     }
 
     @Test
     public void build_WithOrderByClause_GeneratesQueryWithOrderBy()
     {
         List<OrderByField> orderByFields = createOrderByFields();
-        Constraints constraints = createConstraintsWithOrderBy(orderByFields);
+        Constraints constraints = createConstraints(DEFAULT_NO_LIMIT, orderByFields);
 
         HiveQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
@@ -136,16 +123,14 @@ public class HiveQueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain ORDER BY clause", sql.contains("ORDER BY"));
-        assertTrue("SQL should contain name ordering", sql.contains("name ASC NULLS FIRST"));
-        assertTrue("SQL should contain score ordering", sql.contains("score DESC NULLS LAST"));
+        String expectedSql = "SELECT id, name, active, score FROM test_schema.test_table ORDER BY name ASC NULLS FIRST, score DESC NULLS LAST";
+        assertEquals("SQL should match expected query with ORDER BY", expectedSql, sql);
     }
 
     @Test
     public void build_WithLimitClause_GeneratesQueryWithLimit()
     {
-        Constraints constraints = createConstraints(10);
+        Constraints constraints = createConstraints(10, Collections.emptyList());
         HiveQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
@@ -153,8 +138,8 @@ public class HiveQueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain LIMIT clause", sql.contains("LIMIT 10"));
+        String expectedSql = "SELECT id, name, active, score FROM test_schema.test_table  LIMIT 10";
+        assertEquals("SQL should match expected query with LIMIT", expectedSql, sql);
     }
 
     @Test
@@ -168,10 +153,8 @@ public class HiveQueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue("SQL should contain null for empty projection", sql.contains("null"));
-        assertTrue(SQL_SHOULD_CONTAIN_FROM_CLAUSE, sql.contains("FROM test_schema.test_table"));
+        String expectedSql = "SELECT null FROM test_schema.test_table";
+        assertEquals("SQL should match expected query with null projection", expectedSql, sql);
     }
 
     @Test
@@ -197,24 +180,19 @@ public class HiveQueryBuilderTest
     public void build_WithAllComponents_GeneratesCompleteQuery()
     {
         List<OrderByField> orderByFields = createOrderByFields();
-        Constraints constraints = createConstraintsWithOrderBy(orderByFields);
+        Constraints constraints = createConstraints(DEFAULT_NO_LIMIT, orderByFields);
 
         HiveQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withCatalog(TEST_CATALOG_NAME);
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
         builder.withOrderByClause(constraints);
-        builder.withLimitClause(createConstraints());
+        builder.withLimitClause(createConstraints(DEFAULT_NO_LIMIT, Collections.emptyList()));
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue("SQL should contain catalog name", sql.contains("test_catalog"));
-        assertTrue("SQL should contain schema name", sql.contains("test_schema"));
-        assertTrue("SQL should contain table name", sql.contains("test_table"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("id"));
-        assertTrue("SQL should contain ORDER BY", sql.contains("ORDER BY"));
+        String expectedSql = "SELECT id, name, active, score FROM test_catalog.test_schema.test_table ORDER BY name ASC NULLS FIRST, score DESC NULLS LAST";
+        assertEquals("SQL should match expected complete query", expectedSql, sql);
     }
 
     @Test
@@ -228,8 +206,8 @@ public class HiveQueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain table name", sql.contains("test_table"));
+        String expectedSql = "SELECT id, name, active, score FROM .test_table";
+        assertEquals("SQL should match expected query with empty schema", expectedSql, sql);
     }
 
     @Test
@@ -264,12 +242,12 @@ public class HiveQueryBuilderTest
         HiveQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, splitWithPartition);
         builder.withTableName(TEST_TABLE);
-        builder.withConjuncts(testSchema, createConstraints(), splitWithPartition);
+        builder.withConjuncts(testSchema, createConstraints(DEFAULT_NO_LIMIT, Collections.emptyList()), splitWithPartition);
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain partition clause", sql.contains("p0 = 'value'"));
+        String expectedSql = "SELECT id, name, active, score FROM test_schema.test_table  WHERE p0 = 'value'";
+        assertEquals("SQL should match expected query with partition clause", expectedSql, sql);
     }
 
     @Test(expected = NullPointerException.class)
@@ -304,9 +282,8 @@ public class HiveQueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        // Should not contain catalog in FROM clause when null
-        assertFalse("SQL should not contain catalog when null", sql.contains("null.test_schema"));
+        String expectedSql = "SELECT id, name, active, score FROM test_schema.test_table";
+        assertEquals("SQL should match expected query without catalog", expectedSql, sql);
     }
 
     private Schema createTestSchema()
@@ -338,18 +315,8 @@ public class HiveQueryBuilderTest
         return orderByFields;
     }
 
-    private Constraints createConstraintsWithOrderBy(List<OrderByField> orderByFields)
+    private Constraints createConstraints(long limit, List<OrderByField> orderByFields)
     {
-        return new Constraints(new HashMap<>(), Collections.emptyList(), orderByFields, DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
-    }
-
-    private Constraints createConstraints()
-    {
-        return createConstraints(DEFAULT_NO_LIMIT);
-    }
-
-    private Constraints createConstraints(long limit)
-    {
-        return new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), limit, Collections.emptyMap(), null);
+        return new Constraints(new HashMap<>(), Collections.emptyList(), orderByFields, limit, Collections.emptyMap(), null);
     }
 }
