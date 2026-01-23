@@ -39,7 +39,7 @@ public class ImpalaFederationExpressionParserTest
             new ArrowType.Int(32, true),
             Arrays.asList("1", "2", "3")
         );
-        assertEquals("1, 2, 3", result);
+        assertEquals("(1, 2, 3)", result);
     }
 
     @Test
@@ -49,7 +49,7 @@ public class ImpalaFederationExpressionParserTest
             new ArrowType.Utf8(),
             Collections.singletonList("'test'")
         );
-        assertEquals("'test'", result);
+        assertEquals("('test')", result);
     }
 
     @Test
@@ -59,6 +59,6 @@ public class ImpalaFederationExpressionParserTest
             new ArrowType.Bool(),
             Collections.emptyList()
         );
-        assertEquals("", result);
+        assertEquals("()", result);
     }
 }
