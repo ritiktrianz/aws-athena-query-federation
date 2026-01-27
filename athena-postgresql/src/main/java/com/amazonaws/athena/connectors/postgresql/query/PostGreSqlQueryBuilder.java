@@ -93,39 +93,7 @@ public class PostGreSqlQueryBuilder extends JdbcQueryBuilder<PostGreSqlQueryBuil
         return quote(columnName);
     }
     
-    @Override
-    public String getCatalog()
-    {
-        // PostgreSQL doesn't use catalog in FROM clause
-        return null;
-    }
-    
-    @Override
-    public String getSchemaName()
-    {
-        // Override to use partition schema if available
-        String partitionSchemaName = getPartitionSchemaName();
-        if (partitionSchemaName != null) {
-            return quote(partitionSchemaName);
-        }
-        return super.getSchemaName();
-    }
-    
-    @Override
-    public String getTableName()
-    {
-        // Override to use partition table if available
-        String partitionTableName = getPartitionTableName();
-        if (partitionTableName != null) {
-            return quote(partitionTableName);
-        }
-        return super.getTableName();
-    }
-    
-    private String partitionSchemaName;
-    private String partitionTableName;
-    
-    public PostGreSqlQueryBuilder withPartition(Split split)
+    public PostGreSqlQueryBuilder withPartitionClause(Split split)
     {
         String partitionSchema = split.getProperty(PostGreSqlMetadataHandler.BLOCK_PARTITION_SCHEMA_COLUMN_NAME);
         String partitionTable = split.getProperty(PostGreSqlMetadataHandler.BLOCK_PARTITION_COLUMN_NAME);
@@ -133,20 +101,11 @@ public class PostGreSqlQueryBuilder extends JdbcQueryBuilder<PostGreSqlQueryBuil
         // Only use partition if both are set and not "*"
         if (!PostGreSqlMetadataHandler.ALL_PARTITIONS.equals(partitionSchema)
                 && !PostGreSqlMetadataHandler.ALL_PARTITIONS.equals(partitionTable)) {
-            this.partitionSchemaName = partitionSchema;
-            this.partitionTableName = partitionTable;
+            // Directly override the schema and table names to point to the partition
+            this.schemaName = partitionSchema;
+            this.tableName = partitionTable;
         }
         
         return this;
-    }
-    
-    private String getPartitionSchemaName()
-    {
-        return partitionSchemaName;
-    }
-    
-    private String getPartitionTableName()
-    {
-        return partitionTableName;
     }
 }

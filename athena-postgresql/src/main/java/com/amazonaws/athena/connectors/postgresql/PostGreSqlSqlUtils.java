@@ -76,7 +76,7 @@ public class PostGreSqlSqlUtils
         String sql = queryBuilder
                 .withCatalog(null)  // PostgreSQL doesn't use catalog in FROM clause
                 .withTableName(tableName)
-                .withPartition(split)  // Set partition info before projection
+                .withPartitionClause(split)  // Set partition info before projection
                 .withProjection(schema, split)
                 .withConjuncts(schema, constraints, split)
                 .withOrderByClause(constraints)
