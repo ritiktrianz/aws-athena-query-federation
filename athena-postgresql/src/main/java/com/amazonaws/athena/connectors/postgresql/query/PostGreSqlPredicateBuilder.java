@@ -25,8 +25,6 @@ import com.amazonaws.athena.connectors.jdbc.manager.JdbcPredicateBuilder;
 import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.amazonaws.athena.connectors.postgresql.PostgreSqlFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -34,8 +32,6 @@ import static com.amazonaws.athena.connectors.postgresql.PostGreSqlConstants.POS
 
 public class PostGreSqlPredicateBuilder extends JdbcPredicateBuilder
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PostGreSqlPredicateBuilder.class);
-    
     public PostGreSqlPredicateBuilder()
     {
         super(POSTGRES_QUOTE_CHARACTER, new PostGreSqlQueryFactory());
@@ -45,7 +41,6 @@ public class PostGreSqlPredicateBuilder extends JdbcPredicateBuilder
     public List<String> buildConjuncts(List<Field> columns, Constraints constraints,
                                        List<TypeAndValue> parameterValues, Split split)
     {
-        LOGGER.debug("Inside buildConjuncts of template(): ");
         List<String> builder = super.buildConjuncts(columns, constraints, parameterValues, split);
         
         // Add complex expressions (federation expressions)
