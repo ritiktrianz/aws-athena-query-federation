@@ -45,7 +45,6 @@ import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -64,11 +63,7 @@ public class PostGreSqlQueryBuilderTest
     private static final String COLUMN_NAME = "name";
     private static final String COLUMN_ACTIVE = "active";
     private static final String COLUMN_SCORE = "score";
-
-    private static final String SQL_SHOULD_CONTAIN_SELECT = "SQL should contain SELECT";
-    private static final String SQL_SHOULD_CONTAIN_ALL_COLUMNS = "SQL should contain all columns";
-    private static final String SQL_SHOULD_CONTAIN_FROM_CLAUSE = "SQL should contain FROM clause";
-
+    
     private PostGreSqlQueryFactory queryFactory;
     private Schema testSchema;
     private Split split;
@@ -109,13 +104,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"id\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"name\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"active\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"score\""));
-        assertTrue(SQL_SHOULD_CONTAIN_FROM_CLAUSE, sql.contains("FROM \"test_schema\".\"test_table\""));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\"", sql);
     }
 
     @Test
@@ -131,10 +120,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain ORDER BY clause", sql.contains("ORDER BY"));
-        assertTrue("SQL should contain name ordering", sql.contains("\"name\" ASC NULLS FIRST"));
-        assertTrue("SQL should contain score ordering", sql.contains("\"score\" DESC NULLS LAST"));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\" ORDER BY \"name\" ASC NULLS FIRST, \"score\" DESC NULLS LAST", sql);
     }
 
     @Test
@@ -148,8 +134,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain LIMIT clause", sql.contains("LIMIT 100"));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\" LIMIT 100", sql);
     }
 
     @Test
@@ -163,10 +148,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue("SQL should contain null for empty projection", sql.contains("null"));
-        assertTrue(SQL_SHOULD_CONTAIN_FROM_CLAUSE, sql.contains("FROM \"test_schema\".\"test_table\""));
+        assertEquals("SELECT null FROM \"test_schema\".\"test_table\"", sql);
     }
 
     @Test
@@ -203,12 +185,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue("SQL should contain schema name", sql.contains("test_schema"));
-        assertTrue("SQL should contain table name", sql.contains("test_table"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"id\""));
-        assertTrue("SQL should contain ORDER BY", sql.contains("ORDER BY"));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\" ORDER BY \"name\" ASC NULLS FIRST, \"score\" DESC NULLS LAST", sql);
     }
 
     @Test
@@ -222,8 +199,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain table name", sql.contains("\"test_table\""));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"\".\"test_table\"", sql);
     }
 
     @Test
@@ -263,11 +239,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain partition schema", sql.contains("\"partition_schema\""));
-        assertTrue("SQL should contain partition table", sql.contains("\"partition_table\""));
-        assertFalse("SQL should not contain original schema", sql.contains("\"test_schema\""));
-        assertFalse("SQL should not contain original table", sql.contains("\"test_table\""));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"partition_schema\".\"partition_table\"", sql);
     }
 
     @Test
@@ -291,9 +263,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain original schema", sql.contains("\"test_schema\""));
-        assertTrue("SQL should contain original table", sql.contains("\"test_table\""));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\"", sql);
     }
 
     @Test
@@ -315,8 +285,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        assertTrue("SQL should contain RTRIM for CHAR column", sql.contains("RTRIM(\"name\") AS \"name\""));
+        assertEquals("SELECT \"id\", RTRIM(\"name\") AS \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\"", sql);
     }
 
     @Test(expected = NullPointerException.class)
@@ -345,9 +314,7 @@ public class PostGreSqlQueryBuilderTest
 
         String sql = builder.build();
 
-        assertNotNull("SQL should not be null", sql);
-        // Should not contain catalog in FROM clause
-        assertFalse("SQL should not contain catalog", sql.contains("catalog"));
+        assertEquals("SELECT \"id\", \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\"", sql);
     }
 
     @Test
