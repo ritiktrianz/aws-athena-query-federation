@@ -28,10 +28,10 @@ import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFact
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.commons.lang3.Validate;
 import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
@@ -39,13 +39,13 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-
-import static com.amazonaws.athena.connectors.db2.Db2Constants.QUOTE_CHARACTER;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Db2RecordHandler extends JdbcRecordHandler
 {
     private static final int FETCH_SIZE = 1000;
-    private final JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
+
     public Db2RecordHandler(java.util.Map<String, String> configOptions)
     {
         this(JDBCUtil.getSingleDatabaseConfigFromEnv(Db2Constants.NAME, configOptions), configOptions);
@@ -60,14 +60,13 @@ public class Db2RecordHandler extends JdbcRecordHandler
     {
         this(databaseConnectionConfig, S3Client.create(), SecretsManagerClient.create(), AthenaClient.create(),
                 new GenericJdbcConnectionFactory(databaseConnectionConfig, null,
-                        new DatabaseConnectionInfo(Db2Constants.DRIVER_CLASS, Db2Constants.DEFAULT_PORT)), new Db2QueryStringBuilder(QUOTE_CHARACTER, new Db2FederationExpressionParser(QUOTE_CHARACTER)), configOptions);
+                        new DatabaseConnectionInfo(Db2Constants.DRIVER_CLASS, Db2Constants.DEFAULT_PORT)), configOptions);
     }
 
     @VisibleForTesting
-    Db2RecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
+    Db2RecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
-        this.jdbcSplitQueryBuilder = Validate.notNull(jdbcSplitQueryBuilder, "query builder must not be null");
     }
 
     /**
@@ -91,7 +90,16 @@ public class Db2RecordHandler extends JdbcRecordHandler
             preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
         }
         else {
-            preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null, tableName.getSchemaName(), tableName.getTableName(), schema, constraints, split);
+            // Use StringTemplate-based query building
+            List<TypeAndValue> parameterValues = new ArrayList<>();
+            String sql = Db2SqlUtils.buildSql(tableName, schema, constraints, split, parameterValues);
+
+            org.slf4j.LoggerFactory.getLogger(Db2RecordHandler.class).info("Generated SQL: {}", sql);
+            preparedStatement = jdbcConnection.prepareStatement(sql);
+
+            if (!parameterValues.isEmpty()) {
+                JdbcSqlUtils.setParameters(preparedStatement, parameterValues);
+            }
         }
         // Disable fetching all rows.
         preparedStatement.setFetchSize(FETCH_SIZE);

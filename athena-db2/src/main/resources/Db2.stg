@@ -1,0 +1,16 @@
+import "JdbcBase.stg"
+
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: Db2QueryBuilder.java
+ *@Description: Template for DB2 DATAPARTITIONNUM clause used in WHERE conditions.
+ *@param partitioningColumn The column used for partitioning (unquoted, as DB2 DATAPARTITIONNUM expects).
+ *@param partitionNumber The partition number to filter on.
+ *@return A partition clause like DATAPARTITIONNUM(column) = 0
+ */
+partition_clause(partitioningColumn, partitionNumber) ::= <%
+ DATAPARTITIONNUM(<partitioningColumn>) = <partitionNumber>
+%>
