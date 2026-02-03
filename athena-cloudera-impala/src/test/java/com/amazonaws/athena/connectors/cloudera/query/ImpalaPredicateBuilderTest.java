@@ -38,12 +38,15 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ImpalaPredicateBuilderTest
@@ -66,8 +69,8 @@ public class ImpalaPredicateBuilderTest
         allocator = new BlockAllocatorImpl();
         predicateBuilder = new ImpalaPredicateBuilder();
         constraintMap = new LinkedHashMap<>();
-        fields = new java.util.ArrayList<>();
-        parameterValues = new java.util.ArrayList<>();
+        fields = new ArrayList<>();
+        parameterValues = new ArrayList<>();
         org.mockito.Mockito.when(split.getProperties()).thenReturn(Collections.emptyMap());
     }
 
