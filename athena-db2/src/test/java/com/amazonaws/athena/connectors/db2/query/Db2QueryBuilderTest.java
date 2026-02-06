@@ -23,8 +23,6 @@ import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.OrderByField;
-import com.amazonaws.athena.connectors.db2.Db2SqlUtils;
-import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -39,8 +37,9 @@ import java.util.HashMap;
 import java.util.List;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
+import static com.amazonaws.athena.connectors.db2.Db2Constants.PARTITION_NUMBER;
+import static com.amazonaws.athena.connectors.db2.Db2MetadataHandler.PARTITIONING_COLUMN;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -106,8 +105,8 @@ public class Db2QueryBuilderTest
     {
         Db2QueryBuilder builder = queryFactory.createQueryBuilder();
         Split partitionSplit = Mockito.mock(Split.class);
-        Mockito.when(partitionSplit.getProperty("partition_number")).thenReturn("0");
-        Mockito.when(partitionSplit.getProperty("PARTITIONING_COLUMN")).thenReturn("PC");
+        Mockito.when(partitionSplit.getProperty(PARTITION_NUMBER)).thenReturn("0");
+        Mockito.when(partitionSplit.getProperty(PARTITIONING_COLUMN)).thenReturn("PC");
 
         List<String> clauses = builder.getPartitionWhereClauses(partitionSplit);
 
@@ -119,7 +118,7 @@ public class Db2QueryBuilderTest
     {
         Db2QueryBuilder builder = queryFactory.createQueryBuilder();
         Split noPartitionSplit = Mockito.mock(Split.class);
-        Mockito.when(noPartitionSplit.getProperty("PARTITIONING_COLUMN")).thenReturn(null);
+        Mockito.when(noPartitionSplit.getProperty(PARTITIONING_COLUMN)).thenReturn(null);
 
         List<String> clauses = builder.getPartitionWhereClauses(noPartitionSplit);
 
@@ -235,18 +234,5 @@ public class Db2QueryBuilderTest
         String sql = builder.build();
 
         assertTrue("SQL projection should use quoted column names", sql.contains("\"id\"") && sql.contains("\"name\""));
-    }
-
-    @Test
-    public void Db2SqlUtils_buildSql_GeneratesSameFormatAsLegacyFromClause()
-    {
-        List<TypeAndValue> parameterValues = new ArrayList<>();
-        Constraints emptyConstraints = new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
-        String sql = Db2SqlUtils.buildSql(TEST_TABLE, testSchema, emptyConstraints, split, parameterValues);
-
-        assertNotNull(sql);
-        assertTrue(sql.contains("SELECT"));
-        assertTrue(sql.contains("FROM \"test_schema\".\"test_table\""));
-        assertFalse(sql.contains("partition_col"));
     }
 }

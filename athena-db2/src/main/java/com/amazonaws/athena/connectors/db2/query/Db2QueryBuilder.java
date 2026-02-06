@@ -32,7 +32,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static com.amazonaws.athena.connectors.db2.Db2Constants.PARTITION_NUMBER;
 import static com.amazonaws.athena.connectors.db2.Db2Constants.QUOTE_CHARACTER;
+import static com.amazonaws.athena.connectors.db2.Db2MetadataHandler.PARTITIONING_COLUMN;
 
 public class Db2QueryBuilder extends JdbcQueryBuilder<Db2QueryBuilder>
 {
@@ -52,8 +54,8 @@ public class Db2QueryBuilder extends JdbcQueryBuilder<Db2QueryBuilder>
     @Override
     protected List<String> getPartitionWhereClauses(Split split)
     {
-        String column = split.getProperty("PARTITIONING_COLUMN");
-        String partitionNumber = split.getProperty("partition_number");
+        String column = split.getProperty(PARTITIONING_COLUMN);
+        String partitionNumber = split.getProperty(PARTITION_NUMBER);
 
         if (column != null && partitionNumber != null) {
             LOGGER.debug("Fetching data using Partition");

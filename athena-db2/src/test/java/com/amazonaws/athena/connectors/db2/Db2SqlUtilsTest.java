@@ -42,6 +42,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.amazonaws.athena.connectors.db2.Db2Constants.PARTITION_NUMBER;
+import static com.amazonaws.athena.connectors.db2.Db2MetadataHandler.PARTITIONING_COLUMN;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -60,8 +62,7 @@ public class Db2SqlUtilsTest
     private Map<String, ValueSet> constraintMap;
 
     @Before
-    public void setUp() throws Exception
-    {
+    public void setUp() {
         allocator = new BlockAllocatorImpl();
         split = mock(Split.class);
         when(split.getProperties()).thenReturn(Collections.emptyMap());
@@ -80,10 +81,8 @@ public class Db2SqlUtilsTest
         Schema schema = makeSchema(Collections.emptyMap());
 
         String expectedSql = "SELECT null FROM \"test_schema\".\"test_table\"";
-        List<TypeAndValue> expectedParams = Collections.emptyList();
-
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
-        executeAndVerify(constraints, schema, expectedParams, expectedSql);
+        executeAndVerify(constraints, schema, Collections.emptyList(), expectedSql);
     }
 
     @Test
@@ -158,7 +157,7 @@ public class Db2SqlUtilsTest
         constraintMap.put("intCol", rangeSet);
 
         Schema schema = makeSchema(constraintMap);
-        Constraints constraints = new Constraints(constraintMap, Collections.emptyList(), Collections.emptyList(), 100, Collections.emptyMap(), null);
+        Constraints constraints = getConstraints(constraintMap, Collections.emptyList(), 100);
 
         List<TypeAndValue> expectedParams = new ArrayList<>();
         expectedParams.add(new TypeAndValue(INT_TYPE, 10));
@@ -176,10 +175,8 @@ public class Db2SqlUtilsTest
         Schema schema = makeSchema(constraintMap);
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 
-        List<TypeAndValue> expectedParams = Collections.emptyList();
         String expectedSql = "SELECT \"intCol\" FROM \"test_schema\".\"test_table\"  WHERE (\"intCol\" IS NULL)";
-
-        executeAndVerify(constraints, schema, expectedParams, expectedSql);
+        executeAndVerify(constraints, schema, Collections.emptyList(), expectedSql);
     }
 
     @Test
@@ -193,10 +190,8 @@ public class Db2SqlUtilsTest
         Schema schema = makeSchema(constraintMap);
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 
-        List<TypeAndValue> expectedParams = Collections.emptyList();
         String expectedSql = "SELECT \"intCol\" FROM \"test_schema\".\"test_table\"  WHERE (\"intCol\" IS NOT NULL)";
-
-        executeAndVerify(constraints, schema, expectedParams, expectedSql);
+        executeAndVerify(constraints, schema, Collections.emptyList(), expectedSql);
     }
 
     @Test
@@ -206,12 +201,12 @@ public class Db2SqlUtilsTest
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 
         Map<String, String> splitProperties = new LinkedHashMap<>();
-        splitProperties.put("PARTITIONING_COLUMN", "PC");
-        splitProperties.put("partition_number", "1");
+        splitProperties.put(PARTITIONING_COLUMN, "PC");
+        splitProperties.put(PARTITION_NUMBER, "1");
         Split splitWithPartition = mock(Split.class);
         when(splitWithPartition.getProperties()).thenReturn(splitProperties);
-        when(splitWithPartition.getProperty("PARTITIONING_COLUMN")).thenReturn("PC");
-        when(splitWithPartition.getProperty("partition_number")).thenReturn("1");
+        when(splitWithPartition.getProperty(PARTITIONING_COLUMN)).thenReturn("PC");
+        when(splitWithPartition.getProperty(PARTITION_NUMBER)).thenReturn("1");
 
         String expectedSql = "SELECT null FROM \"test_schema\".\"test_table\"  WHERE  DATAPARTITIONNUM(PC) = 1";
 
@@ -272,12 +267,12 @@ public class Db2SqlUtilsTest
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 
         Map<String, String> splitProperties = new LinkedHashMap<>();
-        splitProperties.put("PARTITIONING_COLUMN", "EMP_NO");
-        splitProperties.put("partition_number", "2");
+        splitProperties.put(PARTITIONING_COLUMN, "EMP_NO");
+        splitProperties.put(PARTITION_NUMBER, "2");
         Split splitWithPartition = mock(Split.class);
         when(splitWithPartition.getProperties()).thenReturn(splitProperties);
-        when(splitWithPartition.getProperty("PARTITIONING_COLUMN")).thenReturn("EMP_NO");
-        when(splitWithPartition.getProperty("partition_number")).thenReturn("2");
+        when(splitWithPartition.getProperty(PARTITIONING_COLUMN)).thenReturn("EMP_NO");
+        when(splitWithPartition.getProperty(PARTITION_NUMBER)).thenReturn("2");
 
         List<TypeAndValue> expectedParams = new ArrayList<>();
         expectedParams.add(new TypeAndValue(INT_TYPE, 5));
@@ -336,7 +331,12 @@ public class Db2SqlUtilsTest
 
     private Constraints getConstraints(Map<String, ValueSet> constraintMap, List<OrderByField> orderByFields)
     {
-        return new Constraints(constraintMap, Collections.emptyList(), orderByFields, Constraints.DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
+        return getConstraints(constraintMap, orderByFields, Constraints.DEFAULT_NO_LIMIT);
+    }
+
+    private Constraints getConstraints(Map<String, ValueSet> constraintMap, List<OrderByField> orderByFields, long limit)
+    {
+        return new Constraints(constraintMap, Collections.emptyList(), orderByFields, limit, Collections.emptyMap(), null);
     }
 
     private void executeAndVerify(Constraints constraints, Schema schema, List<TypeAndValue> expectedParams, String expectedSql)

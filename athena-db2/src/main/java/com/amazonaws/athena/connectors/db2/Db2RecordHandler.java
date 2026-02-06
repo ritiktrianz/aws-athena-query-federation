@@ -32,6 +32,8 @@ import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
 import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
@@ -44,6 +46,7 @@ import java.util.List;
 
 public class Db2RecordHandler extends JdbcRecordHandler
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Db2RecordHandler.class);
     private static final int FETCH_SIZE = 1000;
 
     public Db2RecordHandler(java.util.Map<String, String> configOptions)
@@ -94,7 +97,7 @@ public class Db2RecordHandler extends JdbcRecordHandler
             List<TypeAndValue> parameterValues = new ArrayList<>();
             String sql = Db2SqlUtils.buildSql(tableName, schema, constraints, split, parameterValues);
 
-            org.slf4j.LoggerFactory.getLogger(Db2RecordHandler.class).info("Generated SQL: {}", sql);
+            LOGGER.info("Generated SQL: {}", sql);
             preparedStatement = jdbcConnection.prepareStatement(sql);
 
             if (!parameterValues.isEmpty()) {
