@@ -31,6 +31,10 @@ import com.amazonaws.athena.connector.lambda.metadata.GetSplitsRequest;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsResponse;
 import com.amazonaws.athena.connector.lambda.metadata.GetTableLayoutRequest;
 import com.amazonaws.athena.connector.lambda.metadata.GetTableLayoutResponse;
+import com.amazonaws.athena.connector.lambda.metadata.GetTableRequest;
+import com.amazonaws.athena.connector.lambda.metadata.GetTableResponse;
+import com.amazonaws.athena.connector.lambda.metadata.ListSchemasRequest;
+import com.amazonaws.athena.connector.lambda.metadata.ListSchemasResponse;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesResponse;
 import com.amazonaws.athena.connector.lambda.security.FederatedIdentity;
@@ -54,6 +58,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -111,7 +116,7 @@ public class ClickHouseMetadataHandlerTest
     }
 
     @Test
-    public void getPartitionSchema()
+    public void getPartitionSchema_defaultRequest_returnsPartitionSchema()
     {
         Assert.assertEquals(SchemaBuilder.newBuilder()
                         .addField(ClickHouseMetadataHandler.BLOCK_PARTITION_COLUMN_NAME, org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType()).build(),
@@ -119,7 +124,7 @@ public class ClickHouseMetadataHandlerTest
     }
 
     @Test
-    public void doListPaginatedTables()
+    public void doListTables_withPagination_returnsPaginatedTables()
             throws Exception
     {
         BlockAllocator blockAllocator = new BlockAllocatorImpl();
@@ -153,7 +158,7 @@ public class ClickHouseMetadataHandlerTest
     }
 
     @Test(expected = RuntimeException.class)
-    public void doGetTableLayoutWithSQLException()
+    public void doGetTableLayout_whenSQLExceptionOccurs_throwsRuntimeException()
             throws Exception
     {
         Constraints constraints = Mockito.mock(Constraints.class);
@@ -172,7 +177,7 @@ public class ClickHouseMetadataHandlerTest
     }
 
     @Test
-    public void doGetSplits()
+    public void doGetSplits_withPartitions_returnsSplits()
             throws Exception
     {
         BlockAllocator blockAllocator = new BlockAllocatorImpl();
@@ -208,7 +213,7 @@ public class ClickHouseMetadataHandlerTest
     }
 
     @Test
-    public void testDoGetSplitsWithQueryPassThroughEnabled()
+    public void doGetSplits_withQueryPassthroughEnabled_returnsQueryPassthroughSplit()
     {
         TableName tableName = new TableName(TEST_SCHEMA, TEST_TABLE);
 
@@ -234,7 +239,7 @@ public class ClickHouseMetadataHandlerTest
     }
 
     @Test
-    public void testDoGetSplitsWithQueryPassThroughDisabled()
+    public void doGetSplits_withQueryPassthroughDisabled_returnsNormalSplits()
             throws Exception
     {
         BlockAllocator blockAllocator = new BlockAllocatorImpl();
@@ -271,7 +276,7 @@ public class ClickHouseMetadataHandlerTest
     }
 
     @Test
-    public void testDoGetDataSourceCapabilitiesWithQPTEnabled()
+    public void doGetDataSourceCapabilities_withQueryPassthroughEnabled_returnsCapabilities()
     {
         // Test with QPT enabled in config options
         Map<String, String> configOptions = new HashMap<>();
@@ -291,5 +296,81 @@ public class ClickHouseMetadataHandlerTest
 
         // Verify QPT capability is present when enabled
         Assert.assertTrue("Should have capabilities when QPT is enabled", !response.getCapabilities().isEmpty());
+    }
+
+    @Test
+    public void doListSchemaNames_withValidCatalog_returnsSchemaNames()
+            throws Exception
+    {
+        BlockAllocator blockAllocator = new BlockAllocatorImpl();
+        Statement statement = Mockito.mock(Statement.class);
+        Mockito.when(this.connection.createStatement()).thenReturn(statement);
+
+        String[] schemaColumns = {"DATABASE_SCHEMA"};
+        Object[][] schemaValues = {{TEST_SCHEMA}, {"default"}, {"system"}};
+        ResultSet schemaResultSet = mockResultSet(schemaColumns, schemaValues, new AtomicInteger(-1));
+        Mockito.when(statement.executeQuery(ClickHouseMetadataHandler.LIST_SCHEMA_QUERY)).thenReturn(schemaResultSet);
+
+        ListSchemasRequest listSchemasRequest = new ListSchemasRequest(this.federatedIdentity, TEST_QUERY_ID, TEST_CATALOG);
+        ListSchemasResponse listSchemasResponse = this.metadataHandler.doListSchemaNames(blockAllocator, listSchemasRequest);
+
+        Assert.assertNotNull(listSchemasResponse);
+        Assert.assertEquals(TEST_CATALOG, listSchemasResponse.getCatalogName());
+        Assert.assertNotNull(listSchemasResponse.getSchemas());
+        // information_schema is filtered out, so we get testSchema, default, system
+        Assert.assertTrue(listSchemasResponse.getSchemas().contains(TEST_SCHEMA));
+        Assert.assertTrue(listSchemasResponse.getSchemas().contains("default"));
+        Assert.assertTrue(listSchemasResponse.getSchemas().contains("system"));
+    }
+
+    @Test(expected = SQLException.class)
+    public void doListSchemaNames_whenSQLExceptionOccurs_throwsSQLException()
+            throws Exception
+    {
+        Mockito.when(this.connection.createStatement()).thenThrow(new SQLException("Connection failed"));
+        BlockAllocator blockAllocator = new BlockAllocatorImpl();
+        ListSchemasRequest listSchemasRequest = new ListSchemasRequest(this.federatedIdentity, TEST_QUERY_ID, TEST_CATALOG);
+
+        this.metadataHandler.doListSchemaNames(blockAllocator, listSchemasRequest);
+    }
+
+    @Test
+    public void doGetTable_withValidRequest_returnsTableSchemaWithColumns()
+            throws Exception
+    {
+        BlockAllocator blockAllocator = new BlockAllocatorImpl();
+        String[] columnsSchema = {"DATA_TYPE", "COLUMN_SIZE", "COLUMN_NAME", "DECIMAL_DIGITS", "NUM_PREC_RADIX"};
+        int[] columnTypes = {Types.INTEGER, Types.INTEGER, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+        Object[][] values = {
+                {Types.INTEGER, 12, "col1", 0, 0},
+                {Types.VARCHAR, 255, "col2", 0, 0}
+        };
+        ResultSet resultSet = mockResultSet(columnsSchema, columnTypes, values, new AtomicInteger(-1));
+
+        TableName inputTableName = new TableName(TEST_SCHEMA, TEST_TABLE);
+        Mockito.when(this.connection.getMetaData().getSearchStringEscape()).thenReturn(null);
+        Mockito.when(this.connection.getMetaData().getColumns(TEST_CATALOG, inputTableName.getSchemaName(), inputTableName.getTableName(), null)).thenReturn(resultSet);
+        Mockito.when(this.connection.getCatalog()).thenReturn(TEST_CATALOG);
+
+        GetTableResponse getTableResponse = this.metadataHandler.doGetTable(
+                blockAllocator, new GetTableRequest(this.federatedIdentity, TEST_QUERY_ID, TEST_CATALOG, inputTableName, Collections.emptyMap()));
+
+        Assert.assertNotNull(getTableResponse.getSchema());
+        // Schema includes data columns plus partition column(s)
+        Assert.assertTrue("Schema should have at least 2 data columns", getTableResponse.getSchema().getFields().size() >= 2);
+        Assert.assertEquals(inputTableName, getTableResponse.getTableName());
+        Assert.assertEquals(TEST_CATALOG, getTableResponse.getCatalogName());
+    }
+
+    @Test
+    public void doGetDataSourceCapabilities_withQueryPassthroughDisabled_returnsResponse()
+    {
+        GetDataSourceCapabilitiesRequest request = new GetDataSourceCapabilitiesRequest(
+                this.federatedIdentity, TEST_QUERY_ID, TEST_CATALOG);
+
+        GetDataSourceCapabilitiesResponse response = this.metadataHandler.doGetDataSourceCapabilities(this.blockAllocator, request);
+
+        Assert.assertNotNull("Response should not be null", response);
+        Assert.assertEquals("Catalog name should match", TEST_CATALOG, response.getCatalogName());
     }
 }

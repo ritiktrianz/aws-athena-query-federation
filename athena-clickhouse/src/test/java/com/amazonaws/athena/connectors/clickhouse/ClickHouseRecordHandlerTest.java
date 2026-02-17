@@ -104,7 +104,7 @@ public class ClickHouseRecordHandlerTest
     }
 
     @Test
-    public void testBuildSplitSqlWithQueryPassThroughEnabled()
+    public void buildSplitSql_withQueryPassthroughEnabled_returnsPreparedStatement()
             throws SQLException
     {
         Mockito.when(mockConstraints.isQueryPassThrough()).thenReturn(true);
@@ -147,7 +147,7 @@ public class ClickHouseRecordHandlerTest
     }
 
     @Test
-    public void testBuildSplitSqlWithQueryPassThroughDisabled()
+    public void buildSplitSql_withQueryPassthroughDisabled_returnsPreparedStatementFromBuilder()
             throws SQLException
     {
         Mockito.when(mockConstraints.isQueryPassThrough()).thenReturn(false);
@@ -191,7 +191,7 @@ public class ClickHouseRecordHandlerTest
     }
 
     @Test(expected = SQLException.class)
-    public void testBuildSplitSqlWithSQLExceptionFromJdbcSplitQueryBuilder()
+    public void buildSplitSql_whenJdbcSplitQueryBuilderThrowsSQLException_throwsSQLException()
             throws SQLException
     {
         Mockito.when(mockConstraints.isQueryPassThrough()).thenReturn(false);

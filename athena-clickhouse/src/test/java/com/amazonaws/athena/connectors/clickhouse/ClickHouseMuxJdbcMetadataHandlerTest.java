@@ -72,7 +72,7 @@ public class ClickHouseMuxJdbcMetadataHandlerTest
     }
 
     @Test
-    public void doListSchemaNames()
+    public void doListSchemaNames_withSupportedCatalog_delegatesToMetadataHandler()
             throws Exception
     {
         ListSchemasRequest listSchemasRequest = Mockito.mock(ListSchemasRequest.class);
@@ -82,7 +82,7 @@ public class ClickHouseMuxJdbcMetadataHandlerTest
     }
 
     @Test
-    public void doListTables()
+    public void doListTables_withSupportedCatalog_delegatesToMetadataHandler()
             throws Exception
     {
         ListTablesRequest listTablesRequest = Mockito.mock(ListTablesRequest.class);
@@ -92,7 +92,7 @@ public class ClickHouseMuxJdbcMetadataHandlerTest
     }
 
     @Test
-    public void doGetTable()
+    public void doGetTable_withSupportedCatalog_delegatesToMetadataHandler()
             throws Exception
     {
         GetTableRequest getTableRequest = Mockito.mock(GetTableRequest.class);
@@ -102,7 +102,7 @@ public class ClickHouseMuxJdbcMetadataHandlerTest
     }
 
     @Test
-    public void doGetTableLayout()
+    public void doGetTableLayout_withSupportedCatalog_delegatesToMetadataHandler()
             throws Exception
     {
         GetTableLayoutRequest getTableLayoutRequest = Mockito.mock(GetTableLayoutRequest.class);
@@ -113,21 +113,21 @@ public class ClickHouseMuxJdbcMetadataHandlerTest
     }
 
     @Test
-    public void getPartitionSchema()
+    public void getPartitionSchema_withSupportedCatalog_delegatesToMetadataHandler()
     {
         this.jdbcMetadataHandler.getPartitionSchema("fakedatabase");
         Mockito.verify(this.metadataHandler, Mockito.times(1)).getPartitionSchema(Mockito.eq("fakedatabase"));
     }
 
     @Test(expected = RuntimeException.class)
-    public void getPartitionSchemaForUnsupportedCatalog()
+    public void getPartitionSchema_withUnsupportedCatalog_throwsRuntimeException()
     {
         this.jdbcMetadataHandler.getPartitionSchema("unsupportedCatalog");
     }
 
 
     @Test
-    public void getPartitions()
+    public void getPartitions_withSupportedCatalog_delegatesToMetadataHandler()
             throws Exception
     {
         GetTableLayoutRequest getTableLayoutRequest = Mockito.mock(GetTableLayoutRequest.class);
@@ -137,7 +137,7 @@ public class ClickHouseMuxJdbcMetadataHandlerTest
     }
 
     @Test
-    public void doGetSplits()
+    public void doGetSplits_withSupportedCatalog_delegatesToMetadataHandler()
     {
         GetSplitsRequest getSplitsRequest = Mockito.mock(GetSplitsRequest.class);
         Mockito.when(getSplitsRequest.getCatalogName()).thenReturn("fakedatabase");
