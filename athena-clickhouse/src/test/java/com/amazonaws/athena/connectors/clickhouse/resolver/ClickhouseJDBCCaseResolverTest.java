@@ -2,7 +2,7 @@
  * #%L
  * athena-clickhouse
  * %%
- * Copyright (C) 2024 Amazon Web Services
+ * Copyright (C) 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test
-    public void getAdjustedSchemaNameString_withCaseInsensitiveMode_schemaNameFromDatabase() throws SQLException
+    public void getAdjustedSchemaNameString_CaseInsensitiveSearch_ReturnsLowerCasedSchemaName() throws SQLException
     {
         String[] schemaCols = {SCHEMA_COLUMN};
         int[] schemaTypes = {Types.VARCHAR};
@@ -80,7 +80,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test
-    public void getAdjustedTableNameString_withCaseInsensitiveMode_tableNameFromDatabase() throws SQLException
+    public void getAdjustedTableNameString_CaseInsensitiveSearch_ReturnsLowerCasedTableName() throws SQLException
     {
         String[] tableCols = {TABLE_COLUMN};
         int[] tableTypes = {Types.VARCHAR};
@@ -99,7 +99,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test
-    public void getAdjustedTableNameObject_withCaseInsensitiveMode_schemaAndTableFromDatabase() throws SQLException
+    public void getAdjustedTableNameObject_CaseInsensitiveSearch_ReturnsLowerCasedTableNameObject() throws SQLException
     {
         ResultSet schemaResultSet = mockResultSet(
                 new String[]{SCHEMA_COLUMN},
@@ -124,7 +124,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test
-    public void getAdjustedName_noneMode_returnsOriginalNames()
+    public void getAdjustedSchemaNameString_NoneMode_ReturnsOriginalSchemaAndTableName()
     {
         String adjustedSchemaName = resolver.getAdjustedSchemaNameString(mockConnection, SCHEMA_NAME, Map.of(
                 CASING_MODE_CONFIGURATION_KEY, CaseResolver.FederationSDKCasingMode.NONE.name()));
@@ -136,7 +136,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test
-    public void getAdjustedName_lowerCaseMode_returnsLowerNames()
+    public void getAdjustedName_LowerCaseMode_ReturnsLowerCasedNames()
     {
         String adjustedSchemaName = resolver.getAdjustedSchemaNameString(mockConnection, SCHEMA_NAME, Map.of(
                 CASING_MODE_CONFIGURATION_KEY, CaseResolver.FederationSDKCasingMode.LOWER.name()));
@@ -148,7 +148,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test
-    public void getAdjustedName_upperCaseMode_returnsUpperNames()
+    public void getAdjustedName_UpperCaseMode_ReturnsUpperCasedNames()
     {
         String adjustedSchemaName = resolver.getAdjustedSchemaNameString(mockConnection, SCHEMA_NAME, Map.of(
                 CASING_MODE_CONFIGURATION_KEY, CaseResolver.FederationSDKCasingMode.UPPER.name()));
@@ -160,7 +160,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test
-    public void getAdjustedName_missingCasingModeKey_schemaUsesCaseInsensitiveSearch() throws SQLException
+    public void getAdjustedSchemaNameString_EmptyConfig_ReturnsLowerCasedSchemaName() throws SQLException
     {
         // Default for ClickHouse schema is CASE_INSENSITIVE_SEARCH - mock DB response
         String[] schemaCols = {SCHEMA_COLUMN};
@@ -174,7 +174,7 @@ public class ClickhouseJDBCCaseResolverTest extends TestBase
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void getAdjustedName_invalidCasingModeValue_throwsException()
+    public void getAdjustedSchemaNameString_InvalidCasingModeValue_ThrowsException()
     {
         resolver.getAdjustedSchemaNameString(mockConnection, SCHEMA_NAME, Map.of(
                 CASING_MODE_CONFIGURATION_KEY, "INVALID_MODE"));

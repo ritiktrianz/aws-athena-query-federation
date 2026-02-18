@@ -2,7 +2,7 @@
  * #%L
  * athena-clickhouse
  * %%
- * Copyright (C) 2024 Amazon Web Services
+ * Copyright (C) 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ public class ClickHouseUtilTest extends TestBase
     }
 
     @Test
-    public void getTables_withResultSet_returnsTableNames() throws SQLException
+    public void getTables_withValues_returnsTableNames() throws SQLException
     {
         String[] columns = {COLUMN_TABLE_NAME, COLUMN_TABLE_SCHEM};
         Object[][] values = {
@@ -79,7 +79,7 @@ public class ClickHouseUtilTest extends TestBase
     }
 
     @Test
-    public void getTables_emptyResult_returnsEmptyList() throws SQLException
+    public void getTables_withEmptyValues_returnsEmptyList() throws SQLException
     {
         String[] columns = {COLUMN_TABLE_NAME, COLUMN_TABLE_SCHEM};
         Object[][] values = {};
@@ -93,7 +93,7 @@ public class ClickHouseUtilTest extends TestBase
     }
 
     @Test
-    public void getTableMetadata_withResultSet_returnsTableNames() throws SQLException
+    public void getTableMetadata_withValues_returnsTableNames() throws SQLException
     {
         String[] columns = {COLUMN_TABLE_NAME, COLUMN_TABLE_SCHEM};
         Object[][] values = {
@@ -110,7 +110,7 @@ public class ClickHouseUtilTest extends TestBase
     }
 
     @Test
-    public void getTableMetadata_sqlException_returnsEmptyList() throws SQLException
+    public void getTableMetadata_withSqlException_returnsEmptyList() throws SQLException
     {
         when(mockPreparedStatement.executeQuery()).thenThrow(new SQLException("Connection closed"));
 
@@ -121,7 +121,7 @@ public class ClickHouseUtilTest extends TestBase
     }
 
     @Test
-    public void getSchemaTableName_withResultSetRow_returnsTableName() throws SQLException
+    public void getSchemaTableName_withValues_returnsTableName() throws SQLException
     {
         String[] columns = {COLUMN_TABLE_SCHEM, COLUMN_TABLE_NAME};
         Object[][] values = {{TEST_SCHEMA, TEST_TABLE_1}};
