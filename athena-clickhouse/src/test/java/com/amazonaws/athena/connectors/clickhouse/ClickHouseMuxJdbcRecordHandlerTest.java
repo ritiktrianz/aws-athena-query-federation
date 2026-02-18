@@ -93,7 +93,7 @@ public class ClickHouseMuxJdbcRecordHandlerTest
     }
 
     @Test
-    public void readWithConstraint_withSupportedCatalog_delegatesToRecordHandler()
+    public void readWithConstraint_withSupportedCatalog_invokesDelegateReadWithConstraint()
             throws Exception
     {
         BlockSpiller blockSpiller = Mockito.mock(BlockSpiller.class);
@@ -111,7 +111,7 @@ public class ClickHouseMuxJdbcRecordHandlerTest
     }
 
     @Test
-    public void buildSplitSql_withSupportedCatalog_delegatesToRecordHandler()
+    public void buildSplitSql_withSupportedCatalog_invokesDelegateBuildSplitSql()
             throws SQLException
     {
         this.jdbcRecordHandler.buildSplitSql(jdbcConnection, CLICKHOUSE_CATALOG, tableName, schema, constraints, split);
@@ -119,14 +119,14 @@ public class ClickHouseMuxJdbcRecordHandlerTest
     }
 
     @Test
-    public void buildSplitSql_withQueryPassthrough_delegatesToRecordHandler()
+    public void buildSplitSql_withQueryPassthrough_invokesDelegateBuildSplitSql()
             throws SQLException
     {
         mockAndAssertBuildSplitSql(true);
     }
 
     @Test
-    public void buildSplitSql_withNormalQuery_delegatesToRecordHandler()
+    public void buildSplitSql_withNormalQuery_invokesDelegateBuildSplitSql()
             throws SQLException
     {
         mockAndAssertBuildSplitSql(false);
