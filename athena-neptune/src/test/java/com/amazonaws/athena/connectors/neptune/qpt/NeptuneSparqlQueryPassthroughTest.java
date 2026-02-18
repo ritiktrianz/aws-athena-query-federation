@@ -63,7 +63,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithValidArguments() {
+    public void verify_WithValidArguments_DoesNotThrow() {
         try {
             queryPassthrough.verify(baseArguments);
         } catch (Exception e) {
@@ -72,7 +72,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithEmptyArguments() {
+    public void verify_WithEmptyArguments_ThrowsAthenaConnectorException() {
         try {
             queryPassthrough.verify(new HashMap<>());
             fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
@@ -82,7 +82,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithMissingDatabase() {
+    public void verify_WithMissingDatabase_ThrowsAthenaConnectorException() {
         baseArguments.remove(DATABASE);
 
         try {
@@ -94,7 +94,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithMissingCollection() {
+    public void verify_WithMissingCollection_ThrowsAthenaConnectorException() {
         baseArguments.remove(COLLECTION);
 
         try {
@@ -106,7 +106,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithMissingQuery() {
+    public void verify_WithMissingQuery_ThrowsAthenaConnectorException() {
         baseArguments.remove(QUERY);
 
         try {
@@ -118,7 +118,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithTraverseAndQueryArguments_ShouldThrowException() {
+    public void verify_WithTraverseAndQueryArguments_ThrowsAthenaConnectorException() {
         baseArguments.put("TRAVERSE", "g.V().hasLabel('airport')");
 
         try {

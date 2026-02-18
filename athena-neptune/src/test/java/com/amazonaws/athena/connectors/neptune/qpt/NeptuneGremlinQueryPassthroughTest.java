@@ -66,7 +66,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithValidArguments() {
+    public void verify_WithValidArguments_DoesNotThrow() {
         try {
             queryPassthrough.verify(baseArguments);
         } catch (Exception e) {
@@ -75,7 +75,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithEmptyArguments() {
+    public void verify_WithEmptyArguments_ThrowsAthenaConnectorException() {
         try {
             queryPassthrough.verify(new HashMap<>());
             fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
@@ -85,7 +85,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithMissingDatabase() {
+    public void verify_WithMissingDatabase_ThrowsAthenaConnectorException() {
         baseArguments.remove(DATABASE);
 
         try {
@@ -97,7 +97,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithMissingCollection() {
+    public void verify_WithMissingCollection_ThrowsAthenaConnectorException() {
         baseArguments.remove(COLLECTION);
 
         try {
@@ -109,7 +109,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithMissingComponentType() {
+    public void verify_WithMissingComponentType_ThrowsAthenaConnectorException() {
         baseArguments.remove(COMPONENT_TYPE);
 
         try {
@@ -121,7 +121,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithMissingTraverse() {
+    public void verify_WithMissingTraverse_ThrowsAthenaConnectorException() {
         baseArguments.remove(TRAVERSE);
 
         try {
@@ -133,7 +133,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithTraverseAndQueryArguments_ShouldThrowException() {
+    public void verify_WithTraverseAndQueryArguments_ThrowsAthenaConnectorException() {
         baseArguments.put("QUERY", "g.V().hasLabel('airport')");
 
         try {
@@ -145,7 +145,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void testVerifyWithInvalidTraverseSyntax_ShouldThrowException() {
+    public void verify_WithInvalidTraverseSyntax_ThrowsAthenaConnectorException() {
         baseArguments.put(TRAVERSE, "g.V().hasLabel('airport')");
 
         try {

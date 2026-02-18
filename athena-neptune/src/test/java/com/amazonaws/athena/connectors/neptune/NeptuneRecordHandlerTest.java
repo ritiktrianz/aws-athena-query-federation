@@ -260,7 +260,7 @@ public class NeptuneRecordHandlerTest extends TestBase
     }
 
     @Test
-    public void doReadRecordsSpill() throws Exception
+    public void doReadRecords_WithSpill_ReturnsRemoteReadRecordsResponse() throws Exception
     {
         S3SpillLocation splitLoc = S3SpillLocation.newBuilder().withBucket(UUID.randomUUID().toString())
                 .withSplitId(UUID.randomUUID().toString()).withQueryId(UUID.randomUUID().toString())

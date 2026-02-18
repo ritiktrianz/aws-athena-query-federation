@@ -100,7 +100,7 @@ public class NeptuneMetadataHandlerTest extends TestBase
     }
 
     @Test
-    public void doListSchemaNames()
+    public void doListSchemaNames_WithValidRequest_ReturnsNonEmptySchemas()
     {
         ListSchemasRequest req = new ListSchemasRequest(IDENTITY, "queryId", "default");
         ListSchemasResponse res = handler.doListSchemaNames(allocator, req);
@@ -108,7 +108,7 @@ public class NeptuneMetadataHandlerTest extends TestBase
     }
 
     @Test
-    public void doListTables()
+    public void doListTables_WithValidRequest_ReturnsNonEmptyTables()
     {
         List<Table> tables = Arrays.asList(
                 Table.builder().name("table1").build(),
@@ -125,7 +125,7 @@ public class NeptuneMetadataHandlerTest extends TestBase
     }
 
     @Test
-    public void doGetTable() throws Exception
+    public void doGetTable_WithValidRequest_ReturnsSchemaWithFields() throws Exception
     {
         List<Column> columns = Arrays.asList(
                 Column.builder().name("col1").type("int").comment("comment").build(),
