@@ -128,4 +128,21 @@ public class NeptuneSparqlQueryPassthroughTest {
             assertEquals("Mixed operations not supported: Cannot use both SPARQL query and Gremlin traverse in the same request", e.getMessage());
         }
     }
+
+    @Test(expected = NullPointerException.class)
+    public void verify_WithNullArguments_ThrowsNullPointerException() {
+        queryPassthrough.verify(null);
+    }
+
+    @Test
+    public void verify_WithEmptyQueryValue_ThrowsAthenaConnectorException() {
+        baseArguments.put(QUERY, "");
+
+        try {
+            queryPassthrough.verify(baseArguments);
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
+        } catch (AthenaConnectorException e) {
+            assertEquals("Missing Query Passthrough Value for Argument: " + QUERY, e.getMessage());
+        }
+    }
 } 
