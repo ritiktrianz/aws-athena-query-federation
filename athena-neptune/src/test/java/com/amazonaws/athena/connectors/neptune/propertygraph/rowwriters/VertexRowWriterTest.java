@@ -482,6 +482,26 @@ public class VertexRowWriterTest
         configOptions.put(Constants.SCHEMA_CASE_INSEN, CASE_INSENSITIVE_TRUE);
     }
 
+    @Test(expected = NullPointerException.class)
+    public void writeRowTemplate_WithNullRowWriterBuilder_ThrowsNullPointerException() throws Exception
+    {
+        Field varcharField = new Field(NAME, FieldType.nullable(new ArrowType.Utf8()), null);
+        VertexRowWriter.writeRowTemplate(null, varcharField, configOptions);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void writeRowTemplate_WithNullField_ThrowsNullPointerException() throws Exception
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, null, configOptions);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void writeRowTemplate_WithNullConfigOptions_ThrowsNullPointerException() throws Exception
+    {
+        Field varcharField = new Field(NAME, FieldType.nullable(new ArrowType.Utf8()), null);
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, null);
+    }
+
     private void addToVertexContext(String fieldName, Object value)
     {
         if (value instanceof ArrayList) {

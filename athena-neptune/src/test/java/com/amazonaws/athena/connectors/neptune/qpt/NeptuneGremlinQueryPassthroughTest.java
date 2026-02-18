@@ -157,4 +157,21 @@ public class NeptuneGremlinQueryPassthroughTest {
                     "Example for valueMap query is g.V().hasLabel(\\\"airport\\\").valueMap().limit(5)", e.getMessage());
         }
     }
+
+    @Test(expected = NullPointerException.class)
+    public void verify_WithNullArguments_ThrowsNullPointerException() {
+        queryPassthrough.verify(null);
+    }
+
+    @Test
+    public void verify_WithEmptyTraverseValue_ThrowsAthenaConnectorException() {
+        baseArguments.put(TRAVERSE, "");
+
+        try {
+            queryPassthrough.verify(baseArguments);
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
+        } catch (AthenaConnectorException e) {
+            assertEquals("Missing Query Passthrough Value for Argument: " + TRAVERSE, e.getMessage());
+        }
+    }
 }

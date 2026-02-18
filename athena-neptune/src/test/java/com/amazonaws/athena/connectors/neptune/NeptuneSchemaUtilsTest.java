@@ -352,6 +352,26 @@ public class NeptuneSchemaUtilsTest
         assertEquals(EXPECTED_BIGINT_TYPE, schema.findField("largeBigInt").getType().toString());
     }
 
+    @Test(expected = NullPointerException.class)
+    public void getSchemaFromResults_WithNullMap_ThrowsNullPointerException()
+    {
+        NeptuneSchemaUtils.getSchemaFromResults(null, COMPONENT_TYPE_VERTEX, TABLE_NAME);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void getSchemaFromResults_WithNullComponentType_ThrowsNullPointerException()
+    {
+        testDataMap.put("field1", "value1");
+        NeptuneSchemaUtils.getSchemaFromResults(testDataMap, null, TABLE_NAME);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void getSchemaFromResults_WithNullTableName_ThrowsNullPointerException()
+    {
+        testDataMap.put("field1", "value1");
+        NeptuneSchemaUtils.getSchemaFromResults(testDataMap, COMPONENT_TYPE_VERTEX, null);
+    }
+
     private void verifySchemaMetadata(String expectedComponentType)
     {
         assertNotNull("Schema should not be null", schema);

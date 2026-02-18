@@ -191,6 +191,31 @@ public class SparqlRowWriterTest {
         SparqlRowWriter.extractValue(testRow, field, Double.class);
     }
 
+    @Test(expected = NullPointerException.class)
+    public void extractValue_WithNullContext_ThrowsNullPointerException() {
+        Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
+        SparqlRowWriter.extractValue(null, field, Integer.class);
+    }
+
+    @Test
+    public void extractValue_WithMissingFieldInRow_ReturnsNull() {
+        Field field = new Field("nonExistentField", FieldType.nullable(new ArrowType.Int(32, true)), null);
+        testRow.put(TEST_FIELD_NAME, TEST_INT_VALUE);
+        Object result = SparqlRowWriter.extractValue(testRow, field, Integer.class);
+        assertNull(result);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void writeRowTemplate_WithNullRowWriterBuilder_ThrowsNullPointerException() {
+        Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
+        SparqlRowWriter.writeRowTemplate(null, field);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void writeRowTemplate_WithNullField_ThrowsNullPointerException() {
+        SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, null);
+    }
+
     @Test
     public void writeRowTemplate_WithBitField_RegistersBitExtractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Bool()), null);

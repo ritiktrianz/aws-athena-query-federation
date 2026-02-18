@@ -164,6 +164,21 @@ public class EdgeRowWriterTest
         EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, null);
     }
 
+    @Test(expected = NullPointerException.class)
+    public void writeRowTemplate_WithNullRowWriterBuilder_ThrowsNullPointerException()
+    {
+        ArrowType arrowType = ArrowType.Utf8.INSTANCE;
+        when(mockField.getType()).thenReturn(arrowType);
+
+        EdgeRowWriter.writeRowTemplate(null, mockField, configOptions);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void writeRowTemplate_WithNullField_ThrowsNullPointerException()
+    {
+        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, null, configOptions);
+    }
+
     @Test
     public void writeRowTemplate_WithBigIntField_CreatesBigIntExtractor()
     {
