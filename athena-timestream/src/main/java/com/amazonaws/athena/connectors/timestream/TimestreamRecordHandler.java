@@ -158,15 +158,21 @@ public class TimestreamRecordHandler
             switch (Types.getMinorTypeForArrowType(nextField.getType())) {
                 case VARCHAR:
                     builder.withExtractor(nextField.getName(), (VarCharExtractor) (Object context, NullableVarCharHolder value) -> {
-                        String stringValue = ((Row) context).data().get(curFieldNum).scalarValue();
-                        if (stringValue != null) {
-                            value.isSet = 1;
-                            value.value = stringValue;
-                        }
-                        else {
-                            value.isSet = 0;
-                        }
-                    });
+                                Row row = (Row) context;
+                                Datum datum = row.data().get(curFieldNum);
+                                
+                                if (datum.scalarValue() != null) {
+                                    value.isSet = 1;
+                                    value.value = datum.scalarValue();
+                                }
+                                else if (datum.timeSeriesValue() != null) {
+                                    value.isSet = 1;
+                                    value.value = datum.timeSeriesValue().toString();
+                                }
+                                else {
+                                    value.isSet = 0;
+                                }
+                            });
                     break;
                 case FLOAT8:
                     builder.withExtractor(nextField.getName(), (Float8Extractor) (Object context, NullableFloat8Holder value) -> {
