@@ -57,11 +57,16 @@ import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Column;
 import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
+import com.amazonaws.athena.connectors.timestream.qpt.TimestreamQueryPassthrough;
+import com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature;
 import software.amazon.awssdk.services.timestreamquery.TimestreamQueryClient;
+import software.amazon.awssdk.services.timestreamquery.model.ColumnInfo;
 import software.amazon.awssdk.services.timestreamquery.model.Datum;
 import software.amazon.awssdk.services.timestreamquery.model.QueryRequest;
 import software.amazon.awssdk.services.timestreamquery.model.QueryResponse;
 import software.amazon.awssdk.services.timestreamquery.model.Row;
+import software.amazon.awssdk.services.timestreamquery.model.ScalarType;
+import software.amazon.awssdk.services.timestreamquery.model.Type;
 import software.amazon.awssdk.services.timestreamwrite.TimestreamWriteClient;
 import software.amazon.awssdk.services.timestreamwrite.model.Database;
 import software.amazon.awssdk.services.timestreamwrite.model.ListDatabasesRequest;
@@ -72,6 +77,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
 import static com.amazonaws.athena.connector.lambda.handlers.GlueMetadataHandler.VIEW_METADATA_FIELD;
@@ -79,6 +85,7 @@ import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.U
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -105,9 +112,7 @@ public class TimestreamMetadataHandlerTest
     protected GlueClient mockGlue;
 
     @Before
-    public void setUp()
-            throws Exception
-    {
+    public void setUp() {
         handler = new TimestreamMetadataHandler(mockTsQuery,
                 mockTsMeta,
                 mockGlue,
@@ -122,9 +127,7 @@ public class TimestreamMetadataHandlerTest
     }
 
     @After
-    public void tearDown()
-            throws Exception
-    {
+    public void tearDown() {
         allocator.close();
     }
 
@@ -461,5 +464,84 @@ public class TimestreamMetadataHandlerTest
         assertTrue("Continuation criteria violated", response.getContinuationToken() == null);
 
         logger.info("doGetSplits - exit");
+    }
+
+    @Test
+    public void doGetQueryPassthroughSchema_AllScalarColumns_ReturnsCorrectArrowTypes()
+            throws Exception
+    {
+        List<ColumnInfo> columnInfos = new ArrayList<>();
+        columnInfos.add(ColumnInfo.builder().name("measure_name")
+                .type(Type.builder().scalarType(ScalarType.VARCHAR).build()).build());
+        columnInfos.add(ColumnInfo.builder().name("cpu")
+                .type(Type.builder().scalarType(ScalarType.DOUBLE).build()).build());
+        columnInfos.add(ColumnInfo.builder().name("time")
+                .type(Type.builder().scalarType(ScalarType.TIMESTAMP).build()).build());
+
+        QueryResponse mockQueryResponse = mock(QueryResponse.class);
+        when(mockQueryResponse.columnInfo()).thenReturn(columnInfos);
+        when(mockTsQuery.query(nullable(QueryRequest.class))).thenReturn(mockQueryResponse);
+
+        GetTableRequest req = new GetTableRequest(identity,
+                "query-id",
+                "default",
+                new TableName(defaultSchema, "table1"),
+                Map.of(
+                        QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY",
+                        TimestreamQueryPassthrough.QUERY, "SELECT measure_name, cpu, time FROM \"default\".\"table1\""));
+
+        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+        assertEquals(3, res.getSchema().getFields().size());
+        assertEquals(Types.MinorType.VARCHAR,
+                Types.getMinorTypeForArrowType(res.getSchema().findField("measure_name").getType()));
+        assertEquals(Types.MinorType.FLOAT8,
+                Types.getMinorTypeForArrowType(res.getSchema().findField("cpu").getType()));
+        assertEquals(Types.MinorType.DATEMILLI,
+                Types.getMinorTypeForArrowType(res.getSchema().findField("time").getType()));
+    }
+
+    @Test
+    public void doGetQueryPassthroughSchema_NonScalarColumn_FallsBackToVarchar()
+            throws Exception
+    {
+        // A TIME_SERIES column has no scalarType set — scalarType() returns null
+        Type timeSeriesType = Type.builder()
+                .timeSeriesMeasureValueColumnInfo(
+                        ColumnInfo.builder()
+                                .name("measure_value")
+                                .type(Type.builder().scalarType(ScalarType.DOUBLE).build())
+                                .build())
+                .build();
+
+        List<ColumnInfo> columnInfos = new ArrayList<>();
+        columnInfos.add(ColumnInfo.builder().name("measure_name")
+                .type(Type.builder().scalarType(ScalarType.VARCHAR).build()).build());
+        columnInfos.add(ColumnInfo.builder().name("cpu_utilization")
+                .type(timeSeriesType).build());
+
+        QueryResponse mockQueryResponse = mock(QueryResponse.class);
+        when(mockQueryResponse.columnInfo()).thenReturn(columnInfos);
+        when(mockTsQuery.query(nullable(QueryRequest.class))).thenReturn(mockQueryResponse);
+
+        GetTableRequest req = new GetTableRequest(identity,
+                "query-id",
+                "default",
+                new TableName(defaultSchema, "table1"),
+                Map.of(
+                        QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY",
+                        TimestreamQueryPassthrough.QUERY, "SELECT measure_name, CREATE_TIME_SERIES(time, measure_value::double) AS cpu_utilization FROM \"default\".\"table1\""));
+
+        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+        assertEquals(2, res.getSchema().getFields().size());
+
+        // Scalar column mapped normally
+        assertEquals(Types.MinorType.VARCHAR,
+                Types.getMinorTypeForArrowType(res.getSchema().findField("measure_name").getType()));
+
+        // Non-scalar TIME_SERIES column falls back to VARCHAR
+        assertEquals(Types.MinorType.VARCHAR,
+                Types.getMinorTypeForArrowType(res.getSchema().findField("cpu_utilization").getType()));
     }
 }

@@ -325,7 +325,28 @@ public class TimestreamMetadataHandler
         List<ColumnInfo> columnInfo = queryResult.columnInfo();
         SchemaBuilder schemaBuilder = SchemaBuilder.newBuilder();
         for (ColumnInfo column : columnInfo) {
-            Field nextField = TimestreamSchemaUtils.makeField(column.name(), column.type().scalarTypeAsString().toLowerCase());
+            Field nextField;
+            
+            if (column.type().scalarType() != null) {
+                nextField = TimestreamSchemaUtils.makeField(
+                        column.name(),
+                        column.type().scalarTypeAsString().toLowerCase()
+                );
+            }
+            else {
+                // Fallback for TIME_SERIES, ROW, or any other complex type
+                logger.debug(
+                        "Non-scalar column type detected for column '{}', type '{}'. Falling back to VARCHAR.",
+                        column.name(),
+                        column.type()
+                );
+                
+                nextField = TimestreamSchemaUtils.makeField(
+                        column.name(),
+                        "varchar"
+                );
+            }
+            
             schemaBuilder.addField(nextField);
         }
 

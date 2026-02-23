@@ -66,11 +66,13 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.timestreamquery.TimestreamQueryClient;
+import software.amazon.awssdk.services.timestreamquery.model.Datum;
 import software.amazon.awssdk.services.timestreamquery.model.QueryRequest;
 import software.amazon.awssdk.services.timestreamquery.model.QueryResponse;
+import software.amazon.awssdk.services.timestreamquery.model.Row;
+import software.amazon.awssdk.services.timestreamquery.model.TimeSeriesDataPoint;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -87,6 +89,7 @@ import static com.amazonaws.athena.connectors.timestream.TestUtils.makeMockQuery
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -139,9 +142,7 @@ public class TimestreamRecordHandlerTest
     }
 
     @Before
-    public void setUp()
-            throws IOException
-    {
+    public void setUp() {
         logger.info("{}: enter", testName.getMethodName());
 
         allocator = new BlockAllocatorImpl();
@@ -500,5 +501,116 @@ public class TimestreamRecordHandlerTest
         }
 
         logger.info("doReadRecordsNoSpill: {}", BlockUtils.rowToString(response.getRecords(), 0));
+    }
+
+    @Test
+    public void buildRowWriter_VarcharColumnWithScalarValue_ReturnsScalarString()
+            throws Exception
+    {
+
+        Schema schema = SchemaBuilder.newBuilder()
+                .addField("measure_name", Types.MinorType.VARCHAR.getType())
+                .build();
+
+        // Datum has a scalarValue only
+        Datum scalarDatum = Datum.builder().scalarValue("host-123").build();
+        Row row = Row.builder().data(scalarDatum).build();
+
+        QueryResponse mockResult = mock(QueryResponse.class);
+        when(mockResult.rows()).thenReturn(Collections.singletonList(row));
+        when(mockResult.nextToken()).thenReturn(null);
+        when(mockClient.query(nullable(QueryRequest.class))).thenReturn(mockResult);
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                "queryId-" + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schema,
+                Split.newBuilder(splitLoc, keyFactory.create()).build(),
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(1, response.getRecords().getRowCount());
+
+        FieldReader reader = response.getRecords().getFieldReader("measure_name");
+        reader.setPosition(0);
+        assertEquals("host-123", reader.readObject().toString());
+    }
+
+    @Test
+    public void buildRowWriter_VarcharColumnWithTimeSeriesValue_ReturnsStringifiedTimeSeries()
+            throws Exception
+    {
+        logger.info("buildRowWriter_VarcharColumnWithTimeSeriesValue_ReturnsStringifiedTimeSeries - enter");
+
+        Schema schema = SchemaBuilder.newBuilder()
+                .addField("cpu_utilization", Types.MinorType.VARCHAR.getType())
+                .build();
+
+        // Datum has timeSeriesValue only (no scalarValue) — simulates a TIME_SERIES column
+        // mapped to VARCHAR by the schema inference fallback
+        List<TimeSeriesDataPoint> dataPoints = new ArrayList<>();
+        dataPoints.add(TimeSeriesDataPoint.builder()
+                .time("2024-01-01 00:00:00.000")
+                .value(Datum.builder().scalarValue("0.85").build())
+                .build());
+        dataPoints.add(TimeSeriesDataPoint.builder()
+                .time("2024-01-02 00:00:00.000")
+                .value(Datum.builder().scalarValue("0.92").build())
+                .build());
+
+        Datum timeSeriesDatum = Datum.builder().timeSeriesValue(dataPoints).build();
+        Row row = Row.builder().data(timeSeriesDatum).build();
+
+        QueryResponse mockResult = mock(QueryResponse.class);
+        when(mockResult.rows()).thenReturn(Collections.singletonList(row));
+        when(mockResult.nextToken()).thenReturn(null);
+        when(mockClient.query(nullable(QueryRequest.class))).thenReturn(mockResult);
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                "queryId-" + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schema,
+                Split.newBuilder(splitLoc, keyFactory.create()).build(),
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(1, response.getRecords().getRowCount());
+
+        FieldReader reader = response.getRecords().getFieldReader("cpu_utilization");
+        reader.setPosition(0);
+        String actualValue = reader.readObject().toString();
+
+        // The extractor stringifies the timeSeriesValue list — must be non-null and non-empty
+        assertNotNull(actualValue);
+        assertFalse("Expected stringified timeseries to be non-empty", actualValue.isEmpty());
+        assertTrue("Expected stringified value to contain time data", actualValue.contains("2024-01-01"));
     }
 }
