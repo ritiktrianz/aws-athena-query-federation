@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,14 +64,7 @@ public class NeptuneGremlinConnectionTest {
     @Test
     public void constructor_WithoutIAM_CreatesConnectionWithCorrectConfiguration() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
-            // Mock Cluster.build()
-            Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
-            mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
-            
-            // Mock builder method chaining
-            when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
-            when(mockBuilder.port(PORT)).thenReturn(mockBuilder);
-            when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
             when(mockBuilder.create()).thenReturn(mockCluster);
             
             // Create connection
@@ -88,14 +81,7 @@ public class NeptuneGremlinConnectionTest {
     @Test
     public void constructor_WithIAM_CreatesConnectionWithHandshakeInterceptor() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
-            // Mock Cluster.build()
-            Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
-            mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
-            
-            // Mock builder method chaining
-            when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
-            when(mockBuilder.port(PORT)).thenReturn(mockBuilder);
-            when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
             when(mockBuilder.handshakeInterceptor(any())).thenReturn(mockBuilder);
             when(mockBuilder.create()).thenReturn(mockCluster);
             
@@ -141,14 +127,7 @@ public class NeptuneGremlinConnectionTest {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class);
              MockedStatic<DriverRemoteConnection> mockedConnection = mockStatic(DriverRemoteConnection.class)) {
 
-            // Mock Cluster.build()
-            Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
-            mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
-
-            // Mock builder method chaining
-            when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
-            when(mockBuilder.port(PORT)).thenReturn(mockBuilder);
-            when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
             when(mockBuilder.create()).thenReturn(mockCluster);
 
             // Mock DriverRemoteConnection
@@ -169,14 +148,7 @@ public class NeptuneGremlinConnectionTest {
     @Test
     public void closeCluster_WithValidConnection_ClosesCluster() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
-            // Mock Cluster.build()
-            Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
-            mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
-
-            // Mock builder method chaining
-            when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
-            when(mockBuilder.port(PORT)).thenReturn(mockBuilder);
-            when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
             when(mockBuilder.create()).thenReturn(mockCluster);
 
             // Create connection and close cluster
@@ -186,5 +158,14 @@ public class NeptuneGremlinConnectionTest {
             // Verify
             verify(mockCluster).close();
         }
+    }
+
+    private Cluster.Builder mockClusterBuilderChain(MockedStatic<Cluster> mockedCluster) {
+        Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
+        mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
+        when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
+        when(mockBuilder.port(PORT)).thenReturn(mockBuilder);
+        when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
+        return mockBuilder;
     }
 } 

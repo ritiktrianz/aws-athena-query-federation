@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,13 @@ package com.amazonaws.athena.connectors.neptune;
 import com.amazonaws.athena.connectors.neptune.propertygraph.NeptuneGremlinConnection;
 import com.amazonaws.athena.connectors.neptune.rdf.NeptuneSparqlConnection;
 import org.apache.tinkerpop.gremlin.driver.Client;
+import org.apache.tinkerpop.gremlin.driver.Cluster;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.HashMap;
@@ -34,6 +36,10 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -66,13 +72,14 @@ public class NeptuneConnectionTest {
 
     @Test
     public void createConnection_WithPropertyGraphType_ReturnsNeptuneGremlinConnection() throws Exception {
-        // Setup
         configOptions.put(Constants.CFG_GRAPH_TYPE, PROPERTYGRAPH_TYPE);
-        
-        // Execute
-        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
-        
-        // Verify
+
+        try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
+            when(mockBuilder.create()).thenReturn(mock(Cluster.class));
+
+            NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+
         assertNotNull("Connection should not be null", connection);
         assertThat(connection)
                 .as("Should be instance of NeptuneGremlinConnection")
@@ -81,6 +88,7 @@ public class NeptuneConnectionTest {
         assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
         assertEquals("Region should match", TEST_REGION, connection.getRegion());
         assertFalse("IAM should be disabled", connection.isEnabledIAM());
+        }
     }
 
     @Test
@@ -104,10 +112,12 @@ public class NeptuneConnectionTest {
 
     @Test
     public void createConnection_WithNullGraphType_ReturnsNeptuneGremlinConnection() {
-        // Execute
-        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
-        
-        // Verify
+        try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
+            when(mockBuilder.create()).thenReturn(mock(Cluster.class));
+
+            NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+
         assertNotNull("Connection should not be null", connection);
         assertThat(connection)
                 .as("Should be instance of NeptuneGremlinConnection")
@@ -116,6 +126,7 @@ public class NeptuneConnectionTest {
         assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
         assertEquals("Region should match", TEST_REGION, connection.getRegion());
         assertFalse("IAM should be disabled", connection.isEnabledIAM());
+        }
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -129,23 +140,29 @@ public class NeptuneConnectionTest {
 
     @Test
     public void createConnection_WithIAMEnabled_ReturnsConnectionWithIAMEnabled() {
-        // Setup
         configOptions.put(Constants.CFG_GRAPH_TYPE, PROPERTYGRAPH_TYPE);
         configOptions.put(Constants.CFG_IAM, IAM_ENABLED);
-        
-        // Execute
-        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
-        
-        // Verify
+
+        try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, true);
+            when(mockBuilder.create()).thenReturn(mock(Cluster.class));
+
+            NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+
         assertNotNull("Connection should not be null", connection);
         assertThat(connection)
                 .as("Should be instance of NeptuneGremlinConnection")
                 .isInstanceOf(NeptuneGremlinConnection.class);
         assertTrue("IAM should be enabled", connection.isEnabledIAM());
+        }
     }
 
     @Test
     public void getNeptuneClientConnection_WithValidConnection_ReturnsNonNullClient() {
+        try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
+            when(mockBuilder.create()).thenReturn(mock(Cluster.class));
+
         NeptuneConnection connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION) {
 
             @Override
@@ -157,10 +174,15 @@ public class NeptuneConnectionTest {
         Client client = connection.getNeptuneClientConnection();
         assertNotNull(client);
         assertEquals(mockClient, client);
+        }
     }
 
     @Test
     public void getTraversalSource_WithValidClient_ReturnsNonNullTraversalSource() {
+        try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
+            when(mockBuilder.create()).thenReturn(mock(Cluster.class));
+
         NeptuneConnection connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION) {
 
             @Override
@@ -172,5 +194,18 @@ public class NeptuneConnectionTest {
         GraphTraversalSource traversalSource = connection.getTraversalSource(mockClient);
         assertNotNull(traversalSource);
         assertEquals(mockTraversalSource, traversalSource);
+        }
+    }
+
+    private static Cluster.Builder mockClusterBuilderChain(MockedStatic<Cluster> mockedCluster, boolean iamEnabled) {
+        Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
+        mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
+        when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
+        when(mockBuilder.port(Integer.parseInt(TEST_PORT))).thenReturn(mockBuilder);
+        when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
+        if (iamEnabled) {
+            when(mockBuilder.handshakeInterceptor(any())).thenReturn(mockBuilder);
+        }
+        return mockBuilder;
     }
 }
