@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -77,7 +78,7 @@ public class VertexRowWriterTest
     public static final String PRECISION = "precision";
     public static final String NAME_CAPS = "NAME";
     public static final String TESTFIELD = "TESTFIELD";
-    
+
     // Test values
     private static final String VERTEX_123 = "vertex123";
     private static final String PERSON_LABEL = "person";
@@ -90,8 +91,8 @@ public class VertexRowWriterTest
     private static final String SPACES = "   ";
     private static final String CASE_INSENSITIVE_TRUE = "true";
     private static final String CASE_INSENSITIVE_FALSE = "false";
-    private static final String ID_FIELD = "id";
     private static final String TESTFIELD_LOWER = "testfield";
+
     @Mock
     private RowWriterBuilder mockRowWriterBuilder;
 
@@ -103,10 +104,7 @@ public class VertexRowWriterTest
     {
         when(mockRowWriterBuilder.withExtractor(anyString(), any())).thenReturn(mockRowWriterBuilder);
 
-        // Setup config options
         configOptions = new HashMap<>();
-
-        // Setup vertex context data
         vertexContext = new HashMap<>();
         vertexContext.put(T.id.toString(), VERTEX_123);
         vertexContext.put(T.label.toString(), PERSON_LABEL);
@@ -116,17 +114,8 @@ public class VertexRowWriterTest
     public void writeRowTemplate_WithBitExtractorAndValidBoolean_ExtractsCorrectValue() throws Exception
     {
         addToVertexContext(ACTIVE, true);
-
-        Field bitField = new Field(ACTIVE, FieldType.nullable(new ArrowType.Bool()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(ACTIVE), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureBitExtractor(boolField(ACTIVE));
         NullableBitHolder holder = new NullableBitHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(1, holder.value);
@@ -136,17 +125,8 @@ public class VertexRowWriterTest
     public void writeRowTemplate_WithBitExtractorAndValidFalse_ExtractsCorrectValue() throws Exception
     {
         addToVertexContext(INACTIVE, false);
-
-        Field bitField = new Field(INACTIVE, FieldType.nullable(new ArrowType.Bool()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(INACTIVE), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureBitExtractor(boolField(INACTIVE));
         NullableBitHolder holder = new NullableBitHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(0, holder.value);
@@ -156,17 +136,8 @@ public class VertexRowWriterTest
     public void writeRowTemplate_WithBitExtractorAndNullValue_HandlesNullValue() throws Exception
     {
         vertexContext.put(NULL_FIELD, null);
-
-        Field bitField = new Field(NULL_FIELD, FieldType.nullable(new ArrowType.Bool()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(NULL_FIELD), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureBitExtractor(boolField(NULL_FIELD));
         NullableBitHolder holder = new NullableBitHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(0, holder.isSet);
     }
@@ -177,17 +148,8 @@ public class VertexRowWriterTest
         ArrayList<Object> emptyValues = new ArrayList<>();
         emptyValues.add(SPACES);
         vertexContext.put(EMPTY_FIELD, emptyValues);
-
-        Field bitField = new Field(EMPTY_FIELD, FieldType.nullable(new ArrowType.Bool()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(EMPTY_FIELD), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureBitExtractor(boolField(EMPTY_FIELD));
         NullableBitHolder holder = new NullableBitHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(0, holder.isSet);
     }
@@ -198,17 +160,8 @@ public class VertexRowWriterTest
         ArrayList<Object> nameValues = new ArrayList<>();
         nameValues.add(JOHN_DOE);
         vertexContext.put(NAME, nameValues);
-
-        Field varcharField = new Field(NAME, FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(NAME), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureVarCharExtractor(utf8Field(NAME));
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(JOHN_DOE, holder.value);
@@ -217,16 +170,9 @@ public class VertexRowWriterTest
     @Test
     public void writeRowTemplate_WithVarCharExtractorAndSpecialIDField_HandlesSpecialIDField() throws Exception
     {
-        Field idField = new Field(SpecialKeys.ID.toString().toLowerCase(), FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, idField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(ID_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        Field idField = utf8Field(SpecialKeys.ID.toString().toLowerCase());
+        VarCharExtractor extractor = captureVarCharExtractor(idField);
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(VERTEX_123, holder.value);
@@ -240,17 +186,8 @@ public class VertexRowWriterTest
         multiValues.add(VALUE_2);
         multiValues.add(VALUE_3);
         vertexContext.put(MULTI_FIELD, multiValues);
-
-        Field varcharField = new Field(MULTI_FIELD, FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(MULTI_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureVarCharExtractor(utf8Field(MULTI_FIELD));
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(VALUE_1 + SEMICOLON_SEPARATED + VALUE_2 + SEMICOLON_SEPARATED + VALUE_3, holder.value);
@@ -260,17 +197,8 @@ public class VertexRowWriterTest
     public void writeRowTemplate_WithVarCharExtractorAndEmptyArrayList_HandlesEmptyArrayList() throws Exception
     {
         vertexContext.put(EMPTY_LIST, new ArrayList<>());
-
-        Field varcharField = new Field(EMPTY_LIST, FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(EMPTY_LIST), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureVarCharExtractor(utf8Field(EMPTY_LIST));
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(0, holder.isSet);
     }
@@ -282,17 +210,8 @@ public class VertexRowWriterTest
         ArrayList<Object> dateValues = new ArrayList<>();
         dateValues.add(testDate);
         vertexContext.put(CREATED_DATE, dateValues);
-
-        Field dateField = new Field(CREATED_DATE, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.DATEMILLI.getType()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, dateField, configOptions);
-
-        ArgumentCaptor<DateMilliExtractor> extractorCaptor = ArgumentCaptor.forClass(DateMilliExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(CREATED_DATE), extractorCaptor.capture());
-
-        DateMilliExtractor extractor = extractorCaptor.getValue();
+        DateMilliExtractor extractor = captureDateMilliExtractor(dateMilliField(CREATED_DATE));
         NullableDateMilliHolder holder = new NullableDateMilliHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(testDate.getTime(), holder.value);
@@ -304,17 +223,8 @@ public class VertexRowWriterTest
         ArrayList<Object> intValues = new ArrayList<>();
         intValues.add(30);
         vertexContext.put(AGE, intValues);
-
-        Field intField = new Field(AGE, FieldType.nullable(new ArrowType.Int(32, true)), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, intField, configOptions);
-
-        ArgumentCaptor<IntExtractor> extractorCaptor = ArgumentCaptor.forClass(IntExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(AGE), extractorCaptor.capture());
-
-        IntExtractor extractor = extractorCaptor.getValue();
+        IntExtractor extractor = captureIntExtractor(int32Field(AGE));
         NullableIntHolder holder = new NullableIntHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(30, holder.value);
@@ -326,17 +236,8 @@ public class VertexRowWriterTest
         ArrayList<Object> longValues = new ArrayList<>();
         longValues.add(9223372036854775807L);
         vertexContext.put(BIG_NUMBER, longValues);
-
-        Field bigintField = new Field(BIG_NUMBER, FieldType.nullable(new ArrowType.Int(64, true)), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, bigintField, configOptions);
-
-        ArgumentCaptor<BigIntExtractor> extractorCaptor = ArgumentCaptor.forClass(BigIntExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(BIG_NUMBER), extractorCaptor.capture());
-
-        BigIntExtractor extractor = extractorCaptor.getValue();
+        BigIntExtractor extractor = captureBigIntExtractor(int64Field(BIG_NUMBER));
         NullableBigIntHolder holder = new NullableBigIntHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(9223372036854775807L, holder.value);
@@ -348,17 +249,8 @@ public class VertexRowWriterTest
         ArrayList<Object> floatValues = new ArrayList<>();
         floatValues.add(3.14f);
         vertexContext.put(SCORE, floatValues);
-
-        Field floatField = new Field(SCORE, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, floatField, configOptions);
-
-        ArgumentCaptor<Float4Extractor> extractorCaptor = ArgumentCaptor.forClass(Float4Extractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(SCORE), extractorCaptor.capture());
-
-        Float4Extractor extractor = extractorCaptor.getValue();
+        Float4Extractor extractor = captureFloat4Extractor(float4Field(SCORE));
         NullableFloat4Holder holder = new NullableFloat4Holder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(3.14f, holder.value, 0.001f);
@@ -370,17 +262,8 @@ public class VertexRowWriterTest
         ArrayList<Object> doubleValues = new ArrayList<>();
         doubleValues.add(2.718281828);
         vertexContext.put(PRECISION, doubleValues);
-
-        Field doubleField = new Field(PRECISION, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, doubleField, configOptions);
-
-        ArgumentCaptor<Float8Extractor> extractorCaptor = ArgumentCaptor.forClass(Float8Extractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(PRECISION), extractorCaptor.capture());
-
-        Float8Extractor extractor = extractorCaptor.getValue();
+        Float8Extractor extractor = captureFloat8Extractor(float8Field(PRECISION));
         NullableFloat8Holder holder = new NullableFloat8Holder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(2.718281828, holder.value, 0.000001);
@@ -389,20 +272,10 @@ public class VertexRowWriterTest
     @Test
     public void writeRowTemplate_WithContextAsMapAndCaseInsensitive_HandlesCaseInsensitive() throws Exception
     {
-        setupCaseInsensitiveConfig();
+        setupSchemaCaseInsensitive(CASE_INSENSITIVE_TRUE);
         addToVertexContext(NAME, JOHN_DOE);
-
-        Field varcharField = new Field(NAME_CAPS, FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(NAME_CAPS), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureVarCharExtractor(utf8Field(NAME_CAPS));
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
-        // Should find "name" field despite case difference
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(JOHN_DOE, holder.value);
@@ -411,20 +284,10 @@ public class VertexRowWriterTest
     @Test
     public void writeRowTemplate_WithContextAsMapAndCaseSensitive_HandlesCaseSensitive() throws Exception
     {
-        setupCaseSensitiveConfig();
+        setupSchemaCaseInsensitive(CASE_INSENSITIVE_FALSE);
         addToVertexContext(NAME, JOHN_DOE);
-
-        Field varcharField = new Field(NAME_CAPS, FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(NAME_CAPS), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureVarCharExtractor(utf8Field(NAME_CAPS));
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
-        // Should NOT find "name" field due to case difference
         extractor.extract(vertexContext, holder);
         assertEquals(0, holder.isSet);
     }
@@ -432,21 +295,11 @@ public class VertexRowWriterTest
     @Test
     public void writeRowTemplate_WithContextAsMapAndDefaultCaseInsensitive_HandlesDefaultCaseInsensitive() throws Exception
     {
-        // When no configuration is provided, should default to case insensitive
         ArrayList<Object> nameValues = new ArrayList<>();
         nameValues.add(TEST_VALUE);
         vertexContext.put(TESTFIELD_LOWER, nameValues);
-
-        Field varcharField = new Field(TESTFIELD, FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TESTFIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureVarCharExtractor(utf8Field(TESTFIELD));
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(TEST_VALUE, holder.value);
@@ -455,38 +308,18 @@ public class VertexRowWriterTest
     @Test
     public void writeRowTemplate_WithContextAsMapAndIDFieldTransformation_HandlesIDFieldTransformation() throws Exception
     {
-        // Test that T.id is transformed to SpecialKeys.ID
-        Field idField = new Field(SpecialKeys.ID.toString().toLowerCase(), FieldType.nullable(new ArrowType.Utf8()), null);
-
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, idField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(ID_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        Field idField = utf8Field(SpecialKeys.ID.toString().toLowerCase());
+        VarCharExtractor extractor = captureVarCharExtractor(idField);
         NullableVarCharHolder holder = new NullableVarCharHolder();
-
-        // After contextAsMap transformation, T.id should become SpecialKeys.ID
         extractor.extract(vertexContext, holder);
         assertEquals(1, holder.isSet);
         assertEquals(VERTEX_123, holder.value);
     }
 
-    private void setupCaseSensitiveConfig()
-    {
-        configOptions.put(Constants.SCHEMA_CASE_INSEN, CASE_INSENSITIVE_FALSE);
-    }
-
-    private void setupCaseInsensitiveConfig()
-    {
-        configOptions.put(Constants.SCHEMA_CASE_INSEN, CASE_INSENSITIVE_TRUE);
-    }
-
     @Test(expected = NullPointerException.class)
     public void writeRowTemplate_WithNullRowWriterBuilder_ThrowsNullPointerException() throws Exception
     {
-        Field varcharField = new Field(NAME, FieldType.nullable(new ArrowType.Utf8()), null);
-        VertexRowWriter.writeRowTemplate(null, varcharField, configOptions);
+        VertexRowWriter.writeRowTemplate(null, utf8Field(NAME), configOptions);
     }
 
     @Test(expected = NullPointerException.class)
@@ -498,8 +331,103 @@ public class VertexRowWriterTest
     @Test(expected = NullPointerException.class)
     public void writeRowTemplate_WithNullConfigOptions_ThrowsNullPointerException() throws Exception
     {
-        Field varcharField = new Field(NAME, FieldType.nullable(new ArrowType.Utf8()), null);
-        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, null);
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, utf8Field(NAME), null);
+    }
+
+    private BitExtractor captureBitExtractor(Field field)
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<BitExtractor> captor = ArgumentCaptor.forClass(BitExtractor.class);
+        verify(mockRowWriterBuilder).withExtractor(eq(field.getName()), captor.capture());
+        return captor.getValue();
+    }
+
+    private VarCharExtractor captureVarCharExtractor(Field field)
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<VarCharExtractor> captor = ArgumentCaptor.forClass(VarCharExtractor.class);
+        verify(mockRowWriterBuilder).withExtractor(eq(field.getName()), captor.capture());
+        return captor.getValue();
+    }
+
+    private DateMilliExtractor captureDateMilliExtractor(Field field)
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<DateMilliExtractor> captor = ArgumentCaptor.forClass(DateMilliExtractor.class);
+        verify(mockRowWriterBuilder).withExtractor(eq(field.getName()), captor.capture());
+        return captor.getValue();
+    }
+
+    private IntExtractor captureIntExtractor(Field field)
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<IntExtractor> captor = ArgumentCaptor.forClass(IntExtractor.class);
+        verify(mockRowWriterBuilder).withExtractor(eq(field.getName()), captor.capture());
+        return captor.getValue();
+    }
+
+    private BigIntExtractor captureBigIntExtractor(Field field)
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<BigIntExtractor> captor = ArgumentCaptor.forClass(BigIntExtractor.class);
+        verify(mockRowWriterBuilder).withExtractor(eq(field.getName()), captor.capture());
+        return captor.getValue();
+    }
+
+    private Float4Extractor captureFloat4Extractor(Field field)
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<Float4Extractor> captor = ArgumentCaptor.forClass(Float4Extractor.class);
+        verify(mockRowWriterBuilder).withExtractor(eq(field.getName()), captor.capture());
+        return captor.getValue();
+    }
+
+    private Float8Extractor captureFloat8Extractor(Field field)
+    {
+        VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<Float8Extractor> captor = ArgumentCaptor.forClass(Float8Extractor.class);
+        verify(mockRowWriterBuilder).withExtractor(eq(field.getName()), captor.capture());
+        return captor.getValue();
+    }
+
+    private static Field boolField(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Bool()), null);
+    }
+
+    private static Field utf8Field(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Utf8()), null);
+    }
+
+    private static Field dateMilliField(String name)
+    {
+        return new Field(name, FieldType.nullable(Types.MinorType.DATEMILLI.getType()), null);
+    }
+
+    private static Field int32Field(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Int(32, true)), null);
+    }
+
+    private static Field int64Field(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Int(64, true)), null);
+    }
+
+    private static Field float4Field(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
+    }
+
+    private static Field float8Field(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
+    }
+
+    private void setupSchemaCaseInsensitive(String caseInsensitiveValue)
+    {
+        configOptions.put(Constants.SCHEMA_CASE_INSEN, caseInsensitiveValue);
     }
 
     private void addToVertexContext(String fieldName, Object value)

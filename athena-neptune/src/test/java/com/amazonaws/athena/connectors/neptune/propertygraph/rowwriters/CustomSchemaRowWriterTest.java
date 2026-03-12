@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,15 +105,7 @@ public class CustomSchemaRowWriterTest
     }
 
     @Test
-    public void writeRowTemplate_WithBitFieldAndBooleanType_CreatesBitExtractor()
-    {
-        Field field = new Field(BOOL_FIELD, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(BOOL_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithBitFieldAndArrayListType_CreatesBitExtractor()
+    public void writeRowTemplate_WithBitField_CreatesBitExtractor()
     {
         Field field = new Field(BOOL_FIELD, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
         CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
@@ -249,7 +241,7 @@ public class CustomSchemaRowWriterTest
     }
 
     @Test
-    public void writeRowTemplate_WithCaseInsensitiveDisabled_CreatesVarCharExtractor()
+    public void writeRowTemplate_WithCaseInsensitiveDisabledAndStringType_CreatesVarCharExtractor()
     {
         setupCaseSensitiveConfig();
         Field field = new Field(MIXED_CASE_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
@@ -263,10 +255,30 @@ public class CustomSchemaRowWriterTest
         CustomSchemaRowWriter.class.getDeclaredConstructor().newInstance();
     }
 
-    // Comprehensive tests for ArrayList handling and extractor functionality
     @Test
-    public void writeRowTemplate_WithBitExtractorAndValidBoolean_ExtractsCorrectValue() throws Exception
+    public void writeRowTemplate_WithBitExtractorAndBooleanInContext_ExtractsCorrectValue() throws Exception
     {
+        // BIT branch: fieldValue is Boolean (not ArrayList)
+        testContext.put(BOOL_FIELD, Boolean.TRUE);
+
+        Field bitField = new Field(BOOL_FIELD, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
+        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, bitField, configOptions);
+
+        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
+        verify(mockBuilder).withExtractor(eq(BOOL_FIELD), extractorCaptor.capture());
+
+        BitExtractor extractor = extractorCaptor.getValue();
+        NullableBitHolder holder = new NullableBitHolder();
+        extractor.extract(testContext, holder);
+
+        assertEquals(1, holder.isSet);
+        assertEquals(1, holder.value);
+    }
+
+    @Test
+    public void writeRowTemplate_WithBitExtractorAndArrayListInContext_ExtractsCorrectValue() throws Exception
+    {
+        // BIT branch: fieldValue instanceof ArrayList — Gremlin valueMap often wraps in list
         ArrayList<Object> boolValues = new ArrayList<>();
         boolValues.add(true);
         testContext.put(BOOL_FIELD, boolValues);
@@ -614,5 +626,45 @@ public class CustomSchemaRowWriterTest
     private void setupCaseSensitiveConfig()
     {
         configOptions.put(Constants.SCHEMA_CASE_INSEN, CASE_INSENSITIVE_FALSE);
+    }
+
+    @Test
+    public void writeRowTemplate_WithDefaultCaseInsensitiveAndUtf8Type_ResolvesMixedCaseKey() throws Exception
+    {
+        configOptions.clear();
+        final String mixedCase = "MIXEDCASE";
+        final String mixedCaseLower = "mixedcase";
+        final String mixedCaseValue = "Mixed Case Value";
+        testContext.put(mixedCaseLower, mixedCaseValue);
+
+        Field varcharField = new Field(mixedCase, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
+        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, varcharField, configOptions);
+
+        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
+        verify(mockBuilder).withExtractor(eq(mixedCase), extractorCaptor.capture());
+
+        VarCharExtractor extractor = extractorCaptor.getValue();
+        NullableVarCharHolder holder = new NullableVarCharHolder();
+        extractor.extract(testContext, holder);
+        assertEquals(1, holder.isSet);
+        assertEquals(mixedCaseValue, holder.value);
+    }
+
+    @Test
+    public void writeRowTemplate_WithDateMilliExtractorAndEmptyStringInContext_HandlesUnset() throws Exception
+    {
+        final String emptyDateField = "emptyDate";
+        testContext.put(emptyDateField, EMPTY_STRING);
+
+        Field dateField = new Field(emptyDateField, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), Collections.emptyList());
+        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, dateField, configOptions);
+
+        ArgumentCaptor<DateMilliExtractor> extractorCaptor = ArgumentCaptor.forClass(DateMilliExtractor.class);
+        verify(mockBuilder).withExtractor(eq(emptyDateField), extractorCaptor.capture());
+
+        DateMilliExtractor extractor = extractorCaptor.getValue();
+        NullableDateMilliHolder holder = new NullableDateMilliHolder();
+        extractor.extract(testContext, holder);
+        assertEquals(0, holder.isSet);
     }
 } 

@@ -19,6 +19,14 @@
  */
 package com.amazonaws.athena.connectors.neptune;
 
+import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.amazonaws.athena.connector.lambda.data.Block;
 import com.amazonaws.athena.connector.lambda.data.BlockAllocatorImpl;
 import com.amazonaws.athena.connector.lambda.data.BlockUtils;
@@ -26,12 +34,14 @@ import com.amazonaws.athena.connector.lambda.data.S3BlockSpillReader;
 import com.amazonaws.athena.connector.lambda.data.SchemaBuilder;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
+import com.amazonaws.athena.connector.lambda.domain.predicate.EquatableValueSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Range;
 import com.amazonaws.athena.connector.lambda.domain.predicate.SortedRangeSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connector.lambda.domain.spill.S3SpillLocation;
 import com.amazonaws.athena.connector.lambda.domain.spill.SpillLocation;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsRequest;
+import com.amazonaws.athena.connector.lambda.records.ReadRecordsResponse;
 import com.amazonaws.athena.connector.lambda.records.RecordResponse;
 import com.amazonaws.athena.connector.lambda.records.RemoteReadRecordsResponse;
 import com.amazonaws.athena.connector.lambda.security.EncryptionKeyFactory;
@@ -41,6 +51,7 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.tinkerpop.gremlin.driver.Client;
 import org.apache.tinkerpop.gremlin.driver.Result;
+import org.apache.tinkerpop.gremlin.driver.ResultSet;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -59,9 +70,9 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -79,17 +90,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 @RunWith(MockitoJUnitRunner.class)
-public class NeptuneRecordHandlerTest extends TestBase
-{
+public class NeptuneRecordHandlerTest extends TestBase {
     private static final Logger logger = LoggerFactory.getLogger(NeptuneRecordHandlerTest.class);
 
     private NeptuneRecordHandler handler;
@@ -112,15 +114,13 @@ public class NeptuneRecordHandlerTest extends TestBase
     public TestName testName = new TestName();
 
     @After
-    public void after()
-    {
+    public void after() {
         allocator.close();
         logger.info("{}: exit ", testName.getMethodName());
     }
 
     @Before
-    public void setUp()
-    {
+    public void setUp() {
         logger.info("{}: enter", testName.getMethodName());
 
         schemaPGVertexForRead = SchemaBuilder
@@ -200,8 +200,8 @@ public class NeptuneRecordHandlerTest extends TestBase
     /**
      * Create Mock Graph for testing
      */
-    private void buildGraphTraversal()
-    {
+    private void buildGraphTraversal() {
+
         GraphTraversalSource graphTraversalSource = mock(GraphTraversalSource.class);
         Client client = mock(Client.class);
 
@@ -256,12 +256,11 @@ public class NeptuneRecordHandlerTest extends TestBase
         //add edge from vertex1 to vertex2 with attributes
         tinkerGraph.traversal().addE("default").from(vertex2).to(vertex3).property(T.id, "vertex2-vertex3").property(Cardinality.single, "property1", 21).next();
 
-        GraphTraversal<Edge, Edge> edgeTraversal = (GraphTraversal<Edge, Edge>) tinkerGraph.traversal().E();
+        GraphTraversal<Edge, Edge>  edgeTraversal = (GraphTraversal<Edge, Edge>) tinkerGraph.traversal().E();
     }
 
     @Test
-    public void doReadRecords_WithSpill_ReturnsRemoteReadRecordsResponse() throws Exception
-    {
+    public void doReadRecords_WithSpill_ReturnsRemoteReadRecordsResponse() throws Exception {
         S3SpillLocation splitLoc = S3SpillLocation.newBuilder().withBucket(UUID.randomUUID().toString())
                 .withSplitId(UUID.randomUUID().toString()).withQueryId(UUID.randomUUID().toString())
                 .withIsDirectory(true).build();
@@ -303,17 +302,14 @@ public class NeptuneRecordHandlerTest extends TestBase
         }
     }
 
-    private class ByteHolder
-    {
+    private class ByteHolder {
         private byte[] bytes;
 
-        public void setBytes(byte[] bytes)
-        {
+        public void setBytes(byte[] bytes) {
             this.bytes = bytes;
         }
 
-        public byte[] getBytes()
-        {
+        public byte[] getBytes() {
             return bytes;
         }
     }

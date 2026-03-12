@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_LongToInt() {
+    public void extractValue_WithLongValueAndInt32Field_ThrowsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         testRow.put(TEST_FIELD_NAME, TEST_LONG_VALUE);
         
@@ -168,7 +168,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_IntToLong() {
+    public void extractValue_WithIntValueAndInt64Field_ThrowsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
         testRow.put(TEST_FIELD_NAME, TEST_INT_VALUE);
         
@@ -176,7 +176,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_DoubleToFloat() {
+    public void extractValue_WithDoubleValueAndFloat4Field_ThrowsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
         testRow.put(TEST_FIELD_NAME, TEST_DOUBLE_VALUE);
         
@@ -184,7 +184,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_FloatToDouble() {
+    public void extractValue_WithFloatValueAndFloat8Field_ThrowsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
         testRow.put(TEST_FIELD_NAME, TEST_FLOAT_VALUE);
         

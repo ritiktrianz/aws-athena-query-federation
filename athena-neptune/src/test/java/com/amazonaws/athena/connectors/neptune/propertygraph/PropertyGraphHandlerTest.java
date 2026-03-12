@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +87,7 @@ public class PropertyGraphHandlerTest
     private static final String SYSTEM_TRAVERSE = "SYSTEM.TRAVERSE";
     private static final String SYSTEM_QUERY = "SYSTEM.QUERY";
     private static final String INVALID_QUERY = "invalid.query()";
+    private static final String PERSON_VALUEMAP_TRAVERSE = "g.V().hasLabel('person').valueMap()";
 
     @Mock
     private NeptuneConnection neptuneConnection;
@@ -237,18 +238,7 @@ public class PropertyGraphHandlerTest
         Schema viewSchema = new Schema(fields, customMetadata);
         when(recordsRequest.getSchema()).thenReturn(viewSchema);
 
-        // Setup query passthrough
-        Map<String, String> qptArgs = new HashMap<>();
-        qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
-        qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
-        qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, "g.V().hasLabel('person').valueMap()");
-        qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, VALUE_MAP_TYPE);
-        qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_TRAVERSE);
-
-        Constraints constraints = mock(Constraints.class);
-        when(constraints.isQueryPassThrough()).thenReturn(true);
-        when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
-        when(recordsRequest.getConstraints()).thenReturn(constraints);
+        mockQueryPassThroughOnRecordsRequest(gremlinPassthroughArgs(PERSON_VALUEMAP_TRAVERSE));
 
         Result mockResult = mock(Result.class);
         when(mockResult.getObject()).thenReturn(42L);
@@ -272,18 +262,7 @@ public class PropertyGraphHandlerTest
     @Test
     public void executeQuery_WithQueryPassthrough_ProcessesPassthroughQuery() throws Exception
     {
-        // Setup query passthrough mocks
-        Map<String, String> qptArgs = new HashMap<>();
-        qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
-        qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
-        qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, "g.V().hasLabel('person').valueMap()");
-        qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, VALUE_MAP_TYPE);
-        qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_TRAVERSE);
-
-        Constraints constraints = mock(Constraints.class);
-        when(constraints.isQueryPassThrough()).thenReturn(true);
-        when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
-        when(recordsRequest.getConstraints()).thenReturn(constraints);
+        mockQueryPassThroughOnRecordsRequest(gremlinPassthroughArgs(PERSON_VALUEMAP_TRAVERSE));
 
         Map<String, Object> vertexData = new HashMap<>();
         vertexData.put(T.id.toString(), VERTEX_ID);
@@ -339,12 +318,11 @@ public class PropertyGraphHandlerTest
     @Test
     public void getResponseFromGremlinQuery_WithValidQuery_ExecutesQuery() throws Exception
     {
-        String gremlinQuery = GREMLIN_QUERY;
         when(graphTraversalSource.V()).thenReturn(graphTraversal);
         when(graphTraversal.count()).thenReturn(graphTraversal);
         when(graphTraversal.next()).thenReturn(42L);
 
-        handler.getResponseFromGremlinQuery(graphTraversalSource, gremlinQuery);
+        handler.getResponseFromGremlinQuery(graphTraversalSource, GREMLIN_QUERY);
 
         verify(graphTraversalSource).V();
     }
@@ -352,9 +330,7 @@ public class PropertyGraphHandlerTest
     @Test
     public void getResponseFromGremlinQuery_WithInvalidQuery_ThrowsScriptException() throws Exception
     {
-        String invalidQuery = INVALID_QUERY;
-
-        assertThrows(ScriptException.class, () -> handler.getResponseFromGremlinQuery(graphTraversalSource, invalidQuery));
+        assertThrows(ScriptException.class, () -> handler.getResponseFromGremlinQuery(graphTraversalSource, INVALID_QUERY));
     }
 
     @Test
@@ -376,18 +352,33 @@ public class PropertyGraphHandlerTest
     @Test
     public void executeQuery_WithQueryPassthroughAndInvalidQuery_ThrowsRuntimeException() throws Exception
     {
-        // Setup query passthrough mocks with missing query
+        // Passthrough enabled but SYSTEM.QUERY without traverse — handler should throw
         Map<String, String> qptArgs = new HashMap<>();
         qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
         qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
         qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_QUERY);
+        mockQueryPassThroughOnRecordsRequest(qptArgs);
 
+        // Execute test and verify exception
+        assertThrows(RuntimeException.class, () -> handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>()));
+    }
+
+    private static Map<String, String> gremlinPassthroughArgs(String traverse)
+    {
+        Map<String, String> qptArgs = new HashMap<>();
+        qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, traverse);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, VALUE_MAP_TYPE);
+        qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_TRAVERSE);
+        return qptArgs;
+    }
+
+    private void mockQueryPassThroughOnRecordsRequest(Map<String, String> qptArgs)
+    {
         Constraints constraints = mock(Constraints.class);
         when(constraints.isQueryPassThrough()).thenReturn(true);
         when(constraints.getQueryPassthroughArguments()).thenReturn(qptArgs);
         when(recordsRequest.getConstraints()).thenReturn(constraints);
-
-        // Execute test and verify exception
-        assertThrows(RuntimeException.class, () -> handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>()));
     }
 }

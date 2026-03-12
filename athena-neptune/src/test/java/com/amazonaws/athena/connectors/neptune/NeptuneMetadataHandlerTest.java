@@ -30,6 +30,7 @@ import com.amazonaws.athena.connector.lambda.metadata.ListSchemasResponse;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesResponse;
 import com.amazonaws.athena.connector.lambda.security.LocalKeyFactory;
+
 import com.amazonaws.athena.connectors.neptune.propertygraph.PropertyGraphHandler;
 import com.amazonaws.athena.connectors.neptune.qpt.NeptuneGremlinQueryPassthrough;
 import com.amazonaws.athena.connectors.neptune.qpt.NeptuneSparqlQueryPassthrough;
@@ -43,7 +44,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Column;
@@ -54,103 +57,137 @@ import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.UNLIMITED_PAGE_SIZE_VALUE;
 import static com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature.SCHEMA_FUNCTION_NAME;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
+
+import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.UNLIMITED_PAGE_SIZE_VALUE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
-@RunWith(MockitoJUnitRunner.Silent.class)
-public class NeptuneMetadataHandlerTest extends TestBase
-{
+import org.mockito.junit.MockitoJUnitRunner;
+
+@RunWith(MockitoJUnitRunner.class)
+public class NeptuneMetadataHandlerTest extends TestBase {
+    private static final Logger logger = LoggerFactory.getLogger(NeptuneMetadataHandlerTest.class);
+
     @Mock
     private GlueClient glue;
+
+    private NeptuneMetadataHandler handler = null;
+
+    private boolean enableTests = System.getenv("publishing") != null
+            && System.getenv("publishing").equalsIgnoreCase("true");
+
+    private BlockAllocatorImpl allocator;
+
     @Mock
     private NeptuneConnection neptuneConnection;
-    private NeptuneMetadataHandler handler;
-    private BlockAllocatorImpl allocator;
     private static final Map<String, String> DEFAULT_PARAMS = new HashMap<>();
 
     @Before
-    public void setUp()
-    {
+    public void setUp() throws Exception {
+        logger.info("setUpBefore - enter");
         allocator = new BlockAllocatorImpl();
-        glue = mock(GlueClient.class);
-        handler = new NeptuneMetadataHandler(glue, neptuneConnection, new LocalKeyFactory(),
-                mock(SecretsManagerClient.class), mock(AthenaClient.class),
-                "spill-bucket", "spill-prefix", DEFAULT_PARAMS);
+        handler = new NeptuneMetadataHandler(glue,neptuneConnection,
+                new LocalKeyFactory(), mock(SecretsManagerClient.class), mock(AthenaClient.class), "spill-bucket",
+                "spill-prefix", DEFAULT_PARAMS);
+        logger.info("setUpBefore - exit");
     }
 
     @After
-    public void after()
-    {
+    public void after() {
         allocator.close();
     }
 
     @Test
-    public void doListSchemaNames_WithValidRequest_ReturnsNonEmptySchemas()
-    {
+    public void doListSchemaNames_WithValidRequest_ReturnsNonEmptySchemas() {
+        logger.info("doListSchemas - enter");
         ListSchemasRequest req = new ListSchemasRequest(IDENTITY, "queryId", "default");
+
         ListSchemasResponse res = handler.doListSchemaNames(allocator, req);
+        logger.info("doListSchemas - {}", res.getSchemas());
         assertFalse(res.getSchemas().isEmpty());
+        logger.info("doListSchemas - exit");
     }
 
     @Test
-    public void doListTables_WithValidRequest_ReturnsNonEmptyTables()
-    {
-        List<Table> tables = Arrays.asList(
-                Table.builder().name("table1").build(),
-                Table.builder().name("table2").build(),
-                Table.builder().name("table3").build()
-        );
+    public void doListTables_WithValidRequest_ReturnsNonEmptyTables() {
+
+        logger.info("doListTables - enter");
+
+        List<Table> tables = new ArrayList<Table>();
+        Table table1 = Table.builder().name("table1").build();
+        Table table2 = Table.builder().name("table2").build();
+        Table table3 = Table.builder().name("table3").build();
+
+        tables.add(table1);
+        tables.add(table2);
+        tables.add(table3);
+
         GetTablesResponse tableResponse = GetTablesResponse.builder().tableList(tables).build();
-        when(glue.getTables(any(GetTablesRequest.class))).thenReturn(tableResponse);
 
         ListTablesRequest req = new ListTablesRequest(IDENTITY, "queryId", "default",
                 "default", null, UNLIMITED_PAGE_SIZE_VALUE);
+        when(glue.getTables(nullable(GetTablesRequest.class))).thenReturn(tableResponse);
+
         ListTablesResponse res = handler.doListTables(allocator, req);
+
+        logger.info("doListTables - {}", res.getTables());
         assertFalse(res.getTables().isEmpty());
+        logger.info("doListTables - exit");
     }
 
     @Test
-    public void doGetTable_WithValidRequest_ReturnsSchemaWithFields() throws Exception
-    {
-        List<Column> columns = Arrays.asList(
-                Column.builder().name("col1").type("int").comment("comment").build(),
-                Column.builder().name("col2").type("bigint").comment("comment").build(),
-                Column.builder().name("col3").type("string").comment("comment").build(),
-                Column.builder().name("col4").type("timestamp").comment("comment").build(),
-                Column.builder().name("col5").type("date").comment("comment").build(),
-                Column.builder().name("col6").type("timestamptz").comment("comment").build(),
-                Column.builder().name("col7").type("timestamptz").comment("comment").build()
-        );
+    public void doGetTable_WithValidRequest_ReturnsSchemaWithFields() throws Exception {
 
+        logger.info("doGetTable - enter");
+
+        Map<String, String> expectedParams = new HashMap<>();
+
+        List<Column> columns = new ArrayList<>();
+        columns.add(Column.builder().name("col1").type("int").comment("comment").build());
+        columns.add(Column.builder().name("col2").type("bigint").comment("comment").build());
+        columns.add(Column.builder().name("col3").type("string").comment("comment").build());
+        columns.add(Column.builder().name("col4").type("timestamp").comment("comment").build());
+        columns.add(Column.builder().name("col5").type("date").comment("comment").build());
+        columns.add(Column.builder().name("col6").type("timestamptz").comment("comment").build());
+        columns.add(Column.builder().name("col7").type("timestamptz").comment("comment").build());
+
+        StorageDescriptor storageDescriptor = StorageDescriptor.builder().columns(columns).build();
         Table table = Table.builder()
                 .name("table1")
-                .parameters(new HashMap<>())
-                .storageDescriptor(StorageDescriptor.builder().columns(columns).build())
+                .parameters(expectedParams)
+                .storageDescriptor(storageDescriptor)
                 .build();
 
-        when(glue.getTable(any(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-                .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
-                        .table(table).build());
+        expectedParams.put("sourceTable", table.name());
+        expectedParams.put("columnMapping", "col2=Col2,col3=Col3, col4=Col4");
+        expectedParams.put("datetimeFormatMapping", "col2=someformat2, col1=someformat1 ");
 
-        GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "default",
-                new TableName("schema1", "table1"), Collections.emptyMap());
+        GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "default", new TableName("schema1", "table1"), Collections.emptyMap());
+
+        software.amazon.awssdk.services.glue.model.GetTableResponse getTableResponse = software.amazon.awssdk.services.glue.model.GetTableResponse.builder().table(table).build();
+
+        when(glue.getTable(nullable(software.amazon.awssdk.services.glue.model.GetTableRequest.class))).thenReturn(getTableResponse);
+
         GetTableResponse res = handler.doGetTable(allocator, req);
-        assertFalse(res.getSchema().getFields().isEmpty());
+
+        assertTrue(res.getSchema().getFields().size() > 0);
+
+        logger.info("doGetTable - {}", res);
+        logger.info("doGetTable - exit");
     }
 
     private void setupQueryPassthroughTest(String graphType) throws NoSuchFieldException, IllegalAccessException
@@ -175,15 +212,6 @@ public class NeptuneMetadataHandlerTest extends TestBase
                     Column.builder().name("city").type("string").build()
             );
         }
-
-        Table table = Table.builder()
-                .name("table1")
-                .storageDescriptor(StorageDescriptor.builder().columns(columns).build())
-                .parameters(new HashMap<>())
-                .build();
-        when(glue.getTable(any(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-                .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
-                        .table(table).build());
     }
 
     @Test
@@ -232,11 +260,6 @@ public class NeptuneMetadataHandlerTest extends TestBase
                         .build())
                 .build();
 
-        when(glue.getTable(any(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-                .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
-                        .table(table)
-                        .build());
-
         GetTableRequest req = createPassthroughRequest("g.V().hasLabel(\"airport\").valueMap()");
         handler.doGetQueryPassthroughSchema(allocator, req);
     }
@@ -269,7 +292,6 @@ public class NeptuneMetadataHandlerTest extends TestBase
         setupQueryPassthroughTest("rdf");
 
         NeptuneSparqlConnection sparqlConnection = mock(NeptuneSparqlConnection.class);
-        when(sparqlConnection.hasNext()).thenReturn(false);
         doThrow(new RuntimeException("Invalid SPARQL query")).when(sparqlConnection).runQuery(anyString());
 
         Field connField = NeptuneMetadataHandler.class.getDeclaredField("neptuneConnection");
@@ -285,7 +307,6 @@ public class NeptuneMetadataHandlerTest extends TestBase
         setupQueryPassthroughTest("propertygraph");
 
         GraphTraversal graphTraversalMock = mock(GraphTraversal.class);
-        when(graphTraversalMock.hasNext()).thenReturn(false);
 
         Client clientMock = mock(Client.class);
         when(neptuneConnection.getNeptuneClientConnection()).thenReturn(clientMock);

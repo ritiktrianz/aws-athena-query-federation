@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ public class RDFHandlerTest extends TestBase {
     @Test
     public void executeQuery_WithSparqlMode_ProcessesQuery() throws Exception {
         Schema schema = createRDFSchema();
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         when(sparqlConnection.hasNext()).thenReturn(true, false);
         Map<String, Object> result = createTestResult();
         when(sparqlConnection.next()).thenReturn(result);
@@ -128,7 +128,7 @@ public class RDFHandlerTest extends TestBase {
     @Test(expected = RuntimeException.class)
     public void executeQuery_WithRDFReadErrors_ThrowsRuntimeException() throws Exception {
         Schema schema = createRDFSchema();
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         doThrow(new RuntimeException()).when(sparqlConnection).runQuery(anyString());
 
         handler.executeQuery(request, checker, spiller, Collections.emptyMap());
@@ -141,7 +141,7 @@ public class RDFHandlerTest extends TestBase {
             .addStringField("id")
             .build();
 
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         handler.executeQuery(request, checker, spiller, Collections.emptyMap());
     }
 
@@ -157,7 +157,7 @@ public class RDFHandlerTest extends TestBase {
                 .addStringField(AGE_FIELD)
                 .build();
 
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         when(sparqlConnection.hasNext()).thenReturn(true, false);
         Map<String, Object> result = new HashMap<>();
         result.put(PERSON_FIELD, PERSON_URI);
@@ -180,7 +180,7 @@ public class RDFHandlerTest extends TestBase {
                 .addStringField(S_FIELD)
                 .build();
 
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         handler.executeQuery(request, checker, spiller, Collections.emptyMap());
     }
 
@@ -194,7 +194,7 @@ public class RDFHandlerTest extends TestBase {
             .addStringField(PERSON_FIELD)
             .build();
 
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
+        ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         handler.executeQuery(request, checker, spiller, Collections.emptyMap());
     }
 
@@ -215,7 +215,7 @@ public class RDFHandlerTest extends TestBase {
         passthroughArgs.put(COLLECTION, TRIPLES_COLLECTION);
         passthroughArgs.put(QUERY, SPARQL_QUERY);
 
-        ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
+        ReadRecordsRequest request = createReadRecordsRequest(schema, passthroughArgs);
         when(sparqlConnection.hasNext()).thenReturn(true, false);
         Map<String, Object> result = createTestResult();
         when(sparqlConnection.next()).thenReturn(result);
@@ -234,28 +234,7 @@ public class RDFHandlerTest extends TestBase {
         return result;
     }
 
-    private ReadRecordsRequest createReadRecordsRequest(Schema schema) {
-        S3SpillLocation spillLoc = S3SpillLocation.newBuilder()
-            .withBucket(UUID.randomUUID().toString())
-            .withSplitId(UUID.randomUUID().toString())
-            .withQueryId(UUID.randomUUID().toString())
-            .withIsDirectory(true)
-            .build();
-
-        return new ReadRecordsRequest(
-            IDENTITY,
-            DEFAULT_CATALOG,
-            QUERY_ID,
-            TABLE_NAME,
-            schema,
-            Split.newBuilder(spillLoc, new LocalKeyFactory().create()).build(),
-            new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-            1_500_000L,
-            0L
-        );
-    }
-
-    private ReadRecordsRequest createReadRecordsRequestWithPassthrough(Schema schema, Map<String, String> passthroughArgs) {
+    private ReadRecordsRequest createReadRecordsRequest(Schema schema, Map<String, String> passthroughArgs) {
         S3SpillLocation spillLoc = S3SpillLocation.newBuilder()
             .withBucket(UUID.randomUUID().toString())
             .withSplitId(UUID.randomUUID().toString())
