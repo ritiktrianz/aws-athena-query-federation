@@ -6,22 +6,7 @@ permissions:
   contents: read
 
 jobs:
-  # This is from: https://github.com/fkirc/skip-duplicate-actions#example-1-skip-entire-jobs
-  pre_job:
-    runs-on: ubuntu-latest
-    outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
-    steps:
-      - id: skip_check
-        uses: fkirc/skip-duplicate-actions@v5.3.1
-        with:
-          cancel_others: 'true'
-          concurrent_skipping: 'same_content_newer'
-          do_not_skip: '["workflow_dispatch", "schedule", "merge_group", "pull_request"]'
-
   build:
-    needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -54,20 +39,17 @@ jobs:
         if: ${{ (github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork)) && matrix.java-version == '11' }}
         uses: codecov/codecov-action@v6
         with:
-          slug: awslabs/aws-athena-query-federation
           token: ${{ secrets.CODECOV_TOKEN }}
+
       # -------- Codecov test results --------
       # Fork PRs: no token
       - name: Upload test results to Codecov (fork PRs, no token)
         if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork && matrix.java-version == '11' }}
         uses: codecov/test-results-action@v1
-        with:
-          slug: awslabs/aws-athena-query-federation
 
       # Pushes & same-repo PRs: with token
       - name: Upload test results to Codecov (internal only)
         if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork)) && matrix.java-version == '11' }}
         uses: codecov/test-results-action@v1
         with:
-          slug: awslabs/aws-athena-query-federation
           token: ${{ secrets.CODECOV_TOKEN }}
