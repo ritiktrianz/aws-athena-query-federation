@@ -36,6 +36,7 @@ public class CloudwatchExceptionFilter
     @Override
     public boolean isMatch(Exception ex)
     {
+//        codecov test
         if (ex instanceof CloudWatchLogsException && ex.getMessage().startsWith("Rate exceeded")) {
             return true;
         }
