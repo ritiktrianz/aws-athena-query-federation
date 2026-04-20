@@ -25,6 +25,8 @@ public class PostGreSqlConstants
     public static final String POSTGRESQL_DRIVER_CLASS = "org.postgresql.Driver";
     public static final int POSTGRESQL_DEFAULT_PORT = 5432;
     public static final String POSTGRES_QUOTE_CHARACTER = "\"";
+    
+//    codecov
 
     private PostGreSqlConstants() {}
 }
