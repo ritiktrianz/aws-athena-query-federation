@@ -43,6 +43,7 @@ public abstract class JdbcEnvironmentProperties extends EnvironmentProperties
                 + ":" + connectionProperties.get(PORT) + getDatabase(connectionProperties) + getJdbcParameters(connectionProperties);
 
         environment.put(DEFAULT, connectionString);
+//        Codecov test
         return environment;
     }
 
