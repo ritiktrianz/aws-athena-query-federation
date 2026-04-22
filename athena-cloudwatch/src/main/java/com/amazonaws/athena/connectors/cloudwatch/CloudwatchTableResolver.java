@@ -163,6 +163,7 @@ public class CloudwatchTableResolver
             logger.info("loadLogStream: Appears to be a lambda log_stream, substituting Lambda pattern {} for {}",
                     LAMBDA_PATTERN, effectiveTableName);
             effectiveTableName = effectiveTableName.replace(LAMBDA_PATTERN, LAMBDA_ACTUAL_PATTERN);
+//            codeciv test
         }
         DescribeLogStreamsRequest request = DescribeLogStreamsRequest.builder().logGroupName(logGroup)
                 .logStreamNamePrefix(effectiveTableName).build();
