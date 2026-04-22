@@ -114,6 +114,7 @@ public class CloudwatchMetadataHandler
 
     static {
         CLOUDWATCH_SCHEMA = new SchemaBuilder().newBuilder()
+//                test codecov
                 .addField(LOG_STREAM_FIELD, Types.MinorType.VARCHAR.getType())
                 .addField(LOG_TIME_FIELD, new ArrowType.Int(64, true))
                 .addField(LOG_MSG_FIELD, Types.MinorType.VARCHAR.getType())
