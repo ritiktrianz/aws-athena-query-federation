@@ -126,6 +126,7 @@ public class CloudwatchMetadataHandler
     private final ThrottlingInvoker invoker;
     private final CloudwatchTableResolver tableResolver;
     private final CloudwatchQueryPassthrough queryPassthrough = new CloudwatchQueryPassthrough();
+//    test codecov
 
     public CloudwatchMetadataHandler(java.util.Map<String, String> configOptions)
     {
