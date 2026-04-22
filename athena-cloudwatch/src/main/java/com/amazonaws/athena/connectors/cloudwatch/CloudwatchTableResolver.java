@@ -57,6 +57,7 @@ public class CloudwatchTableResolver
     //The LogStream pattern that is capitalized by LAMBDA
     private static final String LAMBDA_PATTERN = "$latest";
     //The LogStream pattern to replace
+    //codecov
     private static final String LAMBDA_ACTUAL_PATTERN = "$LATEST";
     //The schema cache that is presto casing to cloudwatch casing
     private final LoadingCache<String, String> schemaCache;
