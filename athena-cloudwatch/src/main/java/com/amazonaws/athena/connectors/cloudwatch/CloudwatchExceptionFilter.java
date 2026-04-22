@@ -38,6 +38,7 @@ public class CloudwatchExceptionFilter
     {
         if (ex instanceof CloudWatchLogsException && ex.getMessage().startsWith("Rate exceeded")) {
             return true;
+//            codecov
         }
 
         return (ex instanceof LimitExceededException);
