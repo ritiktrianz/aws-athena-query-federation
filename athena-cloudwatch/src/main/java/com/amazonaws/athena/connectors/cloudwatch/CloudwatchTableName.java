@@ -27,6 +27,7 @@ public class CloudwatchTableName
 {
     private final String logGroupName;
     private final String logStreamName;
+//    codecov fix test
 
     public CloudwatchTableName(String logGroupName, String logStreamName)
     {
