@@ -99,14 +99,9 @@ public class NeptuneGremlinConnectionTest {
     @Test
     public void getNeptuneClientConnection_WithValidConnection_ReturnsClient() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
-            // Mock Cluster.build()
-            Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
-            mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
 
-            // Mock builder method chaining
-            when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
-            when(mockBuilder.port(PORT)).thenReturn(mockBuilder);
-            when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
+
             when(mockBuilder.create()).thenReturn(mockCluster);
 
             // Mock cluster.connect()
