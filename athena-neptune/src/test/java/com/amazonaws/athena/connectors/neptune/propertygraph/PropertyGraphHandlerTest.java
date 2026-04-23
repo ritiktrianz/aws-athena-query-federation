@@ -39,6 +39,7 @@ import org.apache.tinkerpop.gremlin.driver.ResultSet;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.T;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -110,11 +111,12 @@ public class PropertyGraphHandlerTest
     private PropertyGraphHandler handler;
     private Schema schema;
     private Map<String, String> customMetadata;
+    private AutoCloseable mocks;
 
     @Before
     public void setUp()
     {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
         handler = new PropertyGraphHandler(neptuneConnection);
 
         // Setup common mocks
@@ -151,6 +153,14 @@ public class PropertyGraphHandlerTest
             rowWriter.writeRows(block, 1);
             return null;
         }).when(spiller).writeRows(any());
+    }
+
+    @After
+    public void tearDown() throws Exception
+    {
+        if (mocks != null) {
+            mocks.close();
+        }
     }
 
     @Test
@@ -238,7 +248,7 @@ public class PropertyGraphHandlerTest
         Schema viewSchema = new Schema(fields, customMetadata);
         when(recordsRequest.getSchema()).thenReturn(viewSchema);
 
-        mockQueryPassThroughOnRecordsRequest(gremlinPassthroughArgs(PERSON_VALUEMAP_TRAVERSE));
+        mockQueryPassThroughOnRecordsRequest(gremlinPassthroughArgs());
 
         Result mockResult = mock(Result.class);
         when(mockResult.getObject()).thenReturn(42L);
@@ -262,7 +272,7 @@ public class PropertyGraphHandlerTest
     @Test
     public void executeQuery_WithQueryPassthrough_ProcessesPassthroughQuery() throws Exception
     {
-        mockQueryPassThroughOnRecordsRequest(gremlinPassthroughArgs(PERSON_VALUEMAP_TRAVERSE));
+        mockQueryPassThroughOnRecordsRequest(gremlinPassthroughArgs());
 
         Map<String, Object> vertexData = new HashMap<>();
         vertexData.put(T.id.toString(), VERTEX_ID);
@@ -363,12 +373,12 @@ public class PropertyGraphHandlerTest
         assertThrows(RuntimeException.class, () -> handler.executeQuery(recordsRequest, queryStatusChecker, spiller, new HashMap<>()));
     }
 
-    private static Map<String, String> gremlinPassthroughArgs(String traverse)
+    private static Map<String, String> gremlinPassthroughArgs()
     {
         Map<String, String> qptArgs = new HashMap<>();
         qptArgs.put(NeptuneGremlinQueryPassthrough.DATABASE, TEST_DB);
         qptArgs.put(NeptuneGremlinQueryPassthrough.COLLECTION, PERSON_LABEL);
-        qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, traverse);
+        qptArgs.put(NeptuneGremlinQueryPassthrough.TRAVERSE, PERSON_VALUEMAP_TRAVERSE);
         qptArgs.put(NeptuneGremlinQueryPassthrough.COMPONENT_TYPE, VALUE_MAP_TYPE);
         qptArgs.put(SCHEMA_FUNCTION_NAME, SYSTEM_TRAVERSE);
         return qptArgs;

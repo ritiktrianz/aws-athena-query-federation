@@ -95,19 +95,22 @@ public class NeptuneConnectionTest {
     public void createConnection_WithRDFType_ReturnsNeptuneSparqlConnection() {
         // Setup
         configOptions.put(Constants.CFG_GRAPH_TYPE, RDF_TYPE);
-        
-        // Execute
-        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
-        
-        // Verify
-        assertNotNull("Connection should not be null", connection);
-        assertThat(connection)
-                .as("Should be instance of NeptuneSparqlConnection")
-                .isInstanceOf(NeptuneSparqlConnection.class);
-        assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
-        assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
-        assertEquals("Region should match", TEST_REGION, connection.getRegion());
-        assertFalse("IAM should be disabled", connection.isEnabledIAM());
+
+        try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
+            Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
+            when(mockBuilder.create()).thenReturn(mock(Cluster.class));
+
+            NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+
+            assertNotNull("Connection should not be null", connection);
+            assertThat(connection)
+                    .as("Should be instance of NeptuneSparqlConnection")
+                    .isInstanceOf(NeptuneSparqlConnection.class);
+            assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
+            assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
+            assertEquals("Region should match", TEST_REGION, connection.getRegion());
+            assertFalse("IAM should be disabled", connection.isEnabledIAM());
+        }
     }
 
     @Test

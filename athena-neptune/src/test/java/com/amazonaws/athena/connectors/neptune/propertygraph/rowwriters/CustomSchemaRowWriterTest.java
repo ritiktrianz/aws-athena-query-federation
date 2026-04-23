@@ -23,6 +23,7 @@ import com.amazonaws.athena.connector.lambda.data.writers.GeneratedRowWriter;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.BigIntExtractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.BitExtractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.DateMilliExtractor;
+import com.amazonaws.athena.connector.lambda.data.writers.extractors.Extractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.Float4Extractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.Float8Extractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.IntExtractor;
@@ -48,6 +49,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -75,7 +77,7 @@ public class CustomSchemaRowWriterTest
     public static final String NULL_FIELD = "nullField";
     public static final String EMPTY_FIELD = "emptyField";
     public static final String MIXED_CASE_FIELD = "MixedCaseField";
-    
+
     // Test values
     private static final String TEST_VALUE = "testValue";
     private static final String VALUE_1 = "value1";
@@ -107,146 +109,68 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithBitField_CreatesBitExtractor()
     {
-        Field field = new Field(BOOL_FIELD, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(BOOL_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldBool(BOOL_FIELD), BOOL_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithVarCharFieldAndStringType_CreatesVarCharExtractor()
     {
-        Field field = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithVarCharFieldAndArrayListType_CreatesVarCharExtractor()
-    {
-        Field field = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithVarCharFieldAndOtherType_CreatesVarCharExtractor()
-    {
-        Field field = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldUtf8(STRING_FIELD), STRING_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithDateMilliFieldAndDateType_CreatesDateMilliExtractor()
     {
-        Field field = new Field(DATE_FIELD, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(DATE_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithDateMilliFieldAndArrayListType_CreatesDateMilliExtractor()
-    {
-        Field field = new Field(DATE_FIELD, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(DATE_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldDateMilli(DATE_FIELD), DATE_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithIntFieldAndIntegerType_CreatesIntExtractor()
     {
-        Field field = new Field(INT_FIELD, FieldType.nullable(new ArrowType.Int(32, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(INT_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithIntFieldAndArrayListType_CreatesIntExtractor()
-    {
-        Field field = new Field(INT_FIELD, FieldType.nullable(new ArrowType.Int(32, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(INT_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldInt32(INT_FIELD), INT_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithBigIntFieldAndLongType_CreatesBigIntExtractor()
     {
-        Field field = new Field(LONG_FIELD, FieldType.nullable(new ArrowType.Int(64, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(LONG_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithBigIntFieldAndArrayListType_CreatesBigIntExtractor()
-    {
-        Field field = new Field(LONG_FIELD, FieldType.nullable(new ArrowType.Int(64, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(LONG_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldInt64(LONG_FIELD), LONG_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithFloat4FieldAndFloatType_CreatesFloat4Extractor()
     {
-        Field field = new Field(FLOAT_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(FLOAT_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithFloat4FieldAndArrayListType_CreatesFloat4Extractor()
-    {
-        Field field = new Field(FLOAT_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(FLOAT_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldFloat4(FLOAT_FIELD), FLOAT_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithFloat8FieldAndDoubleType_CreatesFloat8Extractor()
     {
-        Field field = new Field(DOUBLE_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(DOUBLE_FIELD), any());
-    }
-
-    @Test
-    public void writeRowTemplate_WithFloat8FieldAndArrayListType_CreatesFloat8Extractor()
-    {
-        Field field = new Field(DOUBLE_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(DOUBLE_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldFloat8(DOUBLE_FIELD), DOUBLE_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithIdField_CreatesVarCharExtractor()
     {
-        Field field = new Field(ID, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(ID), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldUtf8(ID), ID);
     }
 
     @Test
     public void writeRowTemplate_WithNullValues_CreatesVarCharExtractor()
     {
-        Field field = new Field(NULL_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(NULL_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldUtf8(NULL_FIELD), NULL_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithEmptyValues_CreatesVarCharExtractor()
     {
-        Field field = new Field(EMPTY_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(EMPTY_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldUtf8(EMPTY_FIELD), EMPTY_FIELD);
     }
 
     @Test
     public void writeRowTemplate_WithCaseInsensitiveDisabledAndStringType_CreatesVarCharExtractor()
     {
         setupCaseSensitiveConfig();
-        Field field = new Field(MIXED_CASE_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
-        verify(mockBuilder).withExtractor(eq(MIXED_CASE_FIELD), any());
+        writeTemplateAndVerifyExtractorRegistered(fieldUtf8(MIXED_CASE_FIELD), MIXED_CASE_FIELD);
     }
 
     @Test(expected = IllegalAccessException.class)
@@ -261,13 +185,7 @@ public class CustomSchemaRowWriterTest
         // BIT branch: fieldValue is Boolean (not ArrayList)
         testContext.put(BOOL_FIELD, Boolean.TRUE);
 
-        Field bitField = new Field(BOOL_FIELD, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockBuilder).withExtractor(eq(BOOL_FIELD), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureExtractorAfterWrite(fieldBool(BOOL_FIELD), BitExtractor.class, BOOL_FIELD);
         NullableBitHolder holder = new NullableBitHolder();
         extractor.extract(testContext, holder);
 
@@ -279,17 +197,9 @@ public class CustomSchemaRowWriterTest
     public void writeRowTemplate_WithBitExtractorAndArrayListInContext_ExtractsCorrectValue() throws Exception
     {
         // BIT branch: fieldValue instanceof ArrayList — Gremlin valueMap often wraps in list
-        ArrayList<Object> boolValues = new ArrayList<>();
-        boolValues.add(true);
-        testContext.put(BOOL_FIELD, boolValues);
+        putListContext(BOOL_FIELD, true);
 
-        Field bitField = new Field(BOOL_FIELD, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockBuilder).withExtractor(eq(BOOL_FIELD), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureExtractorAfterWrite(fieldBool(BOOL_FIELD), BitExtractor.class, BOOL_FIELD);
         NullableBitHolder holder = new NullableBitHolder();
         extractor.extract(testContext, holder);
 
@@ -300,17 +210,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithBitExtractorAndEmptyString_HandlesEmptyValue() throws Exception
     {
-        ArrayList<Object> emptyValues = new ArrayList<>();
-        emptyValues.add(SPACES);
-        testContext.put(BOOL_FIELD, emptyValues);
+        putListContext(BOOL_FIELD, SPACES);
 
-        Field bitField = new Field(BOOL_FIELD, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockBuilder).withExtractor(eq(BOOL_FIELD), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureExtractorAfterWrite(fieldBool(BOOL_FIELD), BitExtractor.class, BOOL_FIELD);
         NullableBitHolder holder = new NullableBitHolder();
         extractor.extract(testContext, holder);
 
@@ -320,17 +222,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithVarCharExtractorAndSingleValue_ExtractsCorrectValue() throws Exception
     {
-        ArrayList<Object> stringValues = new ArrayList<>();
-        stringValues.add(TEST_VALUE);
-        testContext.put(STRING_FIELD, stringValues);
+        putListContext(STRING_FIELD, TEST_VALUE);
 
-        Field varcharField = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWrite(fieldUtf8(STRING_FIELD), VarCharExtractor.class, STRING_FIELD);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(testContext, holder);
 
@@ -341,19 +235,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithVarCharExtractorAndMultipleValues_ConcatenatesValues() throws Exception
     {
-        ArrayList<Object> stringValues = new ArrayList<>();
-        stringValues.add(VALUE_1);
-        stringValues.add(VALUE_2);
-        stringValues.add(VALUE_3);
-        testContext.put(STRING_FIELD, stringValues);
+        putListContext(STRING_FIELD, VALUE_1, VALUE_2, VALUE_3);
 
-        Field varcharField = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWrite(fieldUtf8(STRING_FIELD), VarCharExtractor.class, STRING_FIELD);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(testContext, holder);
 
@@ -366,13 +250,7 @@ public class CustomSchemaRowWriterTest
     {
         testContext.put(STRING_FIELD, 123);
 
-        Field varcharField = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWrite(fieldUtf8(STRING_FIELD), VarCharExtractor.class, STRING_FIELD);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(testContext, holder);
 
@@ -384,17 +262,9 @@ public class CustomSchemaRowWriterTest
     public void writeRowTemplate_WithDateMilliExtractorAndValidDate_ExtractsCorrectValue() throws Exception
     {
         Date testDate = new Date();
-        ArrayList<Object> dateValues = new ArrayList<>();
-        dateValues.add(testDate);
-        testContext.put(DATE_FIELD, dateValues);
+        putListContext(DATE_FIELD, testDate);
 
-        Field dateField = new Field(DATE_FIELD, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, dateField, configOptions);
-
-        ArgumentCaptor<DateMilliExtractor> extractorCaptor = ArgumentCaptor.forClass(DateMilliExtractor.class);
-        verify(mockBuilder).withExtractor(eq(DATE_FIELD), extractorCaptor.capture());
-
-        DateMilliExtractor extractor = extractorCaptor.getValue();
+        DateMilliExtractor extractor = captureExtractorAfterWrite(fieldDateMilli(DATE_FIELD), DateMilliExtractor.class, DATE_FIELD);
         NullableDateMilliHolder holder = new NullableDateMilliHolder();
         extractor.extract(testContext, holder);
 
@@ -405,17 +275,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithDateMilliExtractorAndEmptyString_HandlesEmptyValue() throws Exception
     {
-        ArrayList<Object> emptyValues = new ArrayList<>();
-        emptyValues.add(SPACES);
-        testContext.put(DATE_FIELD, emptyValues);
+        putListContext(DATE_FIELD, SPACES);
 
-        Field dateField = new Field(DATE_FIELD, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, dateField, configOptions);
-
-        ArgumentCaptor<DateMilliExtractor> extractorCaptor = ArgumentCaptor.forClass(DateMilliExtractor.class);
-        verify(mockBuilder).withExtractor(eq(DATE_FIELD), extractorCaptor.capture());
-
-        DateMilliExtractor extractor = extractorCaptor.getValue();
+        DateMilliExtractor extractor = captureExtractorAfterWrite(fieldDateMilli(DATE_FIELD), DateMilliExtractor.class, DATE_FIELD);
         NullableDateMilliHolder holder = new NullableDateMilliHolder();
         extractor.extract(testContext, holder);
 
@@ -425,17 +287,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithIntExtractorAndValidInteger_ExtractsCorrectValue() throws Exception
     {
-        ArrayList<Object> intValues = new ArrayList<>();
-        intValues.add(42);
-        testContext.put(INT_FIELD, intValues);
+        putListContext(INT_FIELD, 42);
 
-        Field intField = new Field(INT_FIELD, FieldType.nullable(new ArrowType.Int(32, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, intField, configOptions);
-
-        ArgumentCaptor<IntExtractor> extractorCaptor = ArgumentCaptor.forClass(IntExtractor.class);
-        verify(mockBuilder).withExtractor(eq(INT_FIELD), extractorCaptor.capture());
-
-        IntExtractor extractor = extractorCaptor.getValue();
+        IntExtractor extractor = captureExtractorAfterWrite(fieldInt32(INT_FIELD), IntExtractor.class, INT_FIELD);
         NullableIntHolder holder = new NullableIntHolder();
         extractor.extract(testContext, holder);
 
@@ -446,17 +300,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithIntExtractorAndEmptyString_HandlesEmptyValue() throws Exception
     {
-        ArrayList<Object> emptyValues = new ArrayList<>();
-        emptyValues.add(SPACES);
-        testContext.put(INT_FIELD, emptyValues);
+        putListContext(INT_FIELD, SPACES);
 
-        Field intField = new Field(INT_FIELD, FieldType.nullable(new ArrowType.Int(32, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, intField, configOptions);
-
-        ArgumentCaptor<IntExtractor> extractorCaptor = ArgumentCaptor.forClass(IntExtractor.class);
-        verify(mockBuilder).withExtractor(eq(INT_FIELD), extractorCaptor.capture());
-
-        IntExtractor extractor = extractorCaptor.getValue();
+        IntExtractor extractor = captureExtractorAfterWrite(fieldInt32(INT_FIELD), IntExtractor.class, INT_FIELD);
         NullableIntHolder holder = new NullableIntHolder();
         extractor.extract(testContext, holder);
 
@@ -466,17 +312,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithBigIntExtractorAndValidLong_ExtractsCorrectValue() throws Exception
     {
-        ArrayList<Object> longValues = new ArrayList<>();
-        longValues.add(Long.parseLong(BIG_INT_VALUE));
-        testContext.put(LONG_FIELD, longValues);
+        putListContext(LONG_FIELD, Long.parseLong(BIG_INT_VALUE));
 
-        Field bigintField = new Field(LONG_FIELD, FieldType.nullable(new ArrowType.Int(64, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, bigintField, configOptions);
-
-        ArgumentCaptor<BigIntExtractor> extractorCaptor = ArgumentCaptor.forClass(BigIntExtractor.class);
-        verify(mockBuilder).withExtractor(eq(LONG_FIELD), extractorCaptor.capture());
-
-        BigIntExtractor extractor = extractorCaptor.getValue();
+        BigIntExtractor extractor = captureExtractorAfterWrite(fieldInt64(LONG_FIELD), BigIntExtractor.class, LONG_FIELD);
         NullableBigIntHolder holder = new NullableBigIntHolder();
         extractor.extract(testContext, holder);
 
@@ -487,17 +325,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithBigIntExtractorAndEmptyString_HandlesEmptyValue() throws Exception
     {
-        ArrayList<Object> emptyValues = new ArrayList<>();
-        emptyValues.add(SPACES);
-        testContext.put(LONG_FIELD, emptyValues);
+        putListContext(LONG_FIELD, SPACES);
 
-        Field bigintField = new Field(LONG_FIELD, FieldType.nullable(new ArrowType.Int(64, true)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, bigintField, configOptions);
-
-        ArgumentCaptor<BigIntExtractor> extractorCaptor = ArgumentCaptor.forClass(BigIntExtractor.class);
-        verify(mockBuilder).withExtractor(eq(LONG_FIELD), extractorCaptor.capture());
-
-        BigIntExtractor extractor = extractorCaptor.getValue();
+        BigIntExtractor extractor = captureExtractorAfterWrite(fieldInt64(LONG_FIELD), BigIntExtractor.class, LONG_FIELD);
         NullableBigIntHolder holder = new NullableBigIntHolder();
         extractor.extract(testContext, holder);
 
@@ -507,17 +337,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithFloat4ExtractorAndValidFloat_ExtractsCorrectValue() throws Exception
     {
-        ArrayList<Object> floatValues = new ArrayList<>();
-        floatValues.add(Float.parseFloat(FLOAT_VALUE_3_14));
-        testContext.put(FLOAT_FIELD, floatValues);
+        putListContext(FLOAT_FIELD, Float.parseFloat(FLOAT_VALUE_3_14));
 
-        Field floatField = new Field(FLOAT_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, floatField, configOptions);
-
-        ArgumentCaptor<Float4Extractor> extractorCaptor = ArgumentCaptor.forClass(Float4Extractor.class);
-        verify(mockBuilder).withExtractor(eq(FLOAT_FIELD), extractorCaptor.capture());
-
-        Float4Extractor extractor = extractorCaptor.getValue();
+        Float4Extractor extractor = captureExtractorAfterWrite(fieldFloat4(FLOAT_FIELD), Float4Extractor.class, FLOAT_FIELD);
         NullableFloat4Holder holder = new NullableFloat4Holder();
         extractor.extract(testContext, holder);
 
@@ -528,17 +350,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithFloat4ExtractorAndEmptyString_HandlesEmptyValue() throws Exception
     {
-        ArrayList<Object> emptyValues = new ArrayList<>();
-        emptyValues.add(SPACES);
-        testContext.put(FLOAT_FIELD, emptyValues);
+        putListContext(FLOAT_FIELD, SPACES);
 
-        Field floatField = new Field(FLOAT_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, floatField, configOptions);
-
-        ArgumentCaptor<Float4Extractor> extractorCaptor = ArgumentCaptor.forClass(Float4Extractor.class);
-        verify(mockBuilder).withExtractor(eq(FLOAT_FIELD), extractorCaptor.capture());
-
-        Float4Extractor extractor = extractorCaptor.getValue();
+        Float4Extractor extractor = captureExtractorAfterWrite(fieldFloat4(FLOAT_FIELD), Float4Extractor.class, FLOAT_FIELD);
         NullableFloat4Holder holder = new NullableFloat4Holder();
         extractor.extract(testContext, holder);
 
@@ -548,17 +362,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithFloat8ExtractorAndValidDouble_ExtractsCorrectValue() throws Exception
     {
-        ArrayList<Object> doubleValues = new ArrayList<>();
-        doubleValues.add(Double.parseDouble(DOUBLE_VALUE_2_718));
-        testContext.put(DOUBLE_FIELD, doubleValues);
+        putListContext(DOUBLE_FIELD, Double.parseDouble(DOUBLE_VALUE_2_718));
 
-        Field doubleField = new Field(DOUBLE_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, doubleField, configOptions);
-
-        ArgumentCaptor<Float8Extractor> extractorCaptor = ArgumentCaptor.forClass(Float8Extractor.class);
-        verify(mockBuilder).withExtractor(eq(DOUBLE_FIELD), extractorCaptor.capture());
-
-        Float8Extractor extractor = extractorCaptor.getValue();
+        Float8Extractor extractor = captureExtractorAfterWrite(fieldFloat8(DOUBLE_FIELD), Float8Extractor.class, DOUBLE_FIELD);
         NullableFloat8Holder holder = new NullableFloat8Holder();
         extractor.extract(testContext, holder);
 
@@ -569,17 +375,9 @@ public class CustomSchemaRowWriterTest
     @Test
     public void writeRowTemplate_WithFloat8ExtractorAndEmptyString_HandlesEmptyValue() throws Exception
     {
-        ArrayList<Object> emptyValues = new ArrayList<>();
-        emptyValues.add(SPACES);
-        testContext.put(DOUBLE_FIELD, emptyValues);
+        putListContext(DOUBLE_FIELD, SPACES);
 
-        Field doubleField = new Field(DOUBLE_FIELD, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, doubleField, configOptions);
-
-        ArgumentCaptor<Float8Extractor> extractorCaptor = ArgumentCaptor.forClass(Float8Extractor.class);
-        verify(mockBuilder).withExtractor(eq(DOUBLE_FIELD), extractorCaptor.capture());
-
-        Float8Extractor extractor = extractorCaptor.getValue();
+        Float8Extractor extractor = captureExtractorAfterWrite(fieldFloat8(DOUBLE_FIELD), Float8Extractor.class, DOUBLE_FIELD);
         NullableFloat8Holder holder = new NullableFloat8Holder();
         extractor.extract(testContext, holder);
 
@@ -591,13 +389,7 @@ public class CustomSchemaRowWriterTest
     {
         testContext.put(STRING_FIELD, null);
 
-        Field varcharField = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWrite(fieldUtf8(STRING_FIELD), VarCharExtractor.class, STRING_FIELD);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(testContext, holder);
 
@@ -609,13 +401,7 @@ public class CustomSchemaRowWriterTest
     {
         testContext.put(STRING_FIELD, EMPTY_STRING);
 
-        Field varcharField = new Field(STRING_FIELD, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockBuilder).withExtractor(eq(STRING_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWrite(fieldUtf8(STRING_FIELD), VarCharExtractor.class, STRING_FIELD);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(testContext, holder);
 
@@ -637,13 +423,7 @@ public class CustomSchemaRowWriterTest
         final String mixedCaseValue = "Mixed Case Value";
         testContext.put(mixedCaseLower, mixedCaseValue);
 
-        Field varcharField = new Field(mixedCase, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockBuilder).withExtractor(eq(mixedCase), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWrite(fieldUtf8(mixedCase), VarCharExtractor.class, mixedCase);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(testContext, holder);
         assertEquals(1, holder.isSet);
@@ -656,15 +436,68 @@ public class CustomSchemaRowWriterTest
         final String emptyDateField = "emptyDate";
         testContext.put(emptyDateField, EMPTY_STRING);
 
-        Field dateField = new Field(emptyDateField, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), Collections.emptyList());
-        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, dateField, configOptions);
-
-        ArgumentCaptor<DateMilliExtractor> extractorCaptor = ArgumentCaptor.forClass(DateMilliExtractor.class);
-        verify(mockBuilder).withExtractor(eq(emptyDateField), extractorCaptor.capture());
-
-        DateMilliExtractor extractor = extractorCaptor.getValue();
+        DateMilliExtractor extractor = captureExtractorAfterWrite(fieldDateMilli(emptyDateField), DateMilliExtractor.class, emptyDateField);
         NullableDateMilliHolder holder = new NullableDateMilliHolder();
         extractor.extract(testContext, holder);
         assertEquals(0, holder.isSet);
     }
-} 
+
+    private void writeRowTemplate(Field field)
+    {
+        CustomSchemaRowWriter.writeRowTemplate(mockBuilder, field, configOptions);
+    }
+
+    private void writeTemplateAndVerifyExtractorRegistered(Field field, String expectedFieldName)
+    {
+        writeRowTemplate(field);
+        verify(mockBuilder).withExtractor(eq(expectedFieldName), any());
+    }
+
+    private Field fieldBool(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Bool()), Collections.emptyList());
+    }
+
+    private Field fieldUtf8(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Utf8()), Collections.emptyList());
+    }
+
+    private Field fieldDateMilli(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), Collections.emptyList());
+    }
+
+    private Field fieldInt32(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Int(32, true)), Collections.emptyList());
+    }
+
+    private Field fieldInt64(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Int(64, true)), Collections.emptyList());
+    }
+
+    private Field fieldFloat4(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Collections.emptyList());
+    }
+
+    private Field fieldFloat8(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Collections.emptyList());
+    }
+
+    private void putListContext(String fieldName, Object... elements)
+    {
+        testContext.put(fieldName, new ArrayList<>(Arrays.asList(elements)));
+    }
+
+    private <E extends Extractor> E captureExtractorAfterWrite(Field field, Class<E> extractorType, String verifyFieldName)
+    {
+        writeRowTemplate(field);
+        ArgumentCaptor<E> captor = ArgumentCaptor.forClass(extractorType);
+        verify(mockBuilder).withExtractor(eq(verifyFieldName), captor.capture());
+        return captor.getValue();
+    }
+}

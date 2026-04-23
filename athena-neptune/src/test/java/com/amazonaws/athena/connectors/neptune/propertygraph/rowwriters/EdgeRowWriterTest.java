@@ -23,6 +23,7 @@ import com.amazonaws.athena.connector.lambda.data.writers.GeneratedRowWriter.Row
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.BigIntExtractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.BitExtractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.DateMilliExtractor;
+import com.amazonaws.athena.connector.lambda.data.writers.extractors.Extractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.Float4Extractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.Float8Extractor;
 import com.amazonaws.athena.connector.lambda.data.writers.extractors.IntExtractor;
@@ -110,17 +111,10 @@ public class EdgeRowWriterTest
     @Test
     public void writeRowTemplate_WithCaseInsensitiveConfigAndBoolType_CreatesBitExtractor() throws Exception
     {
-        ArrowType arrowType = ArrowType.Bool.INSTANCE;
-        when(mockField.getType()).thenReturn(arrowType);
-
+        mockFieldArrowType(ArrowType.Bool.INSTANCE);
         setupSchemaCaseInsensitive(CASE_INSENSITIVE_TRUE);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), extractorCaptor.capture());
-
-        BitExtractor capturedExtractor = extractorCaptor.getValue();
+        BitExtractor capturedExtractor = captureExtractorAfterWriteMockField(BitExtractor.class);
         assertNotNull("BitExtractor should not be null", capturedExtractor);
 
         Map<String, Object> context = new HashMap<>();
@@ -139,17 +133,10 @@ public class EdgeRowWriterTest
     @Test
     public void writeRowTemplate_WithCaseInsensitiveConfigAndUtf8Type_CreatesVarCharExtractor() throws Exception
     {
-        ArrowType arrowType = ArrowType.Utf8.INSTANCE;
-        when(mockField.getType()).thenReturn(arrowType);
-
+        mockFieldArrowType(ArrowType.Utf8.INSTANCE);
         setupSchemaCaseInsensitive(CASE_INSENSITIVE_TRUE);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor capturedExtractor = extractorCaptor.getValue();
+        VarCharExtractor capturedExtractor = captureExtractorAfterWriteMockField(VarCharExtractor.class);
         assertNotNull("VarCharExtractor should not be null", capturedExtractor);
 
         Map<String, Object> context = new HashMap<>();
@@ -168,17 +155,10 @@ public class EdgeRowWriterTest
     @Test
     public void writeRowTemplate_WithCaseInsensitiveDisabledAndUtf8Type_CreatesVarCharExtractor() throws Exception
     {
-        ArrowType arrowType = ArrowType.Utf8.INSTANCE;
-        when(mockField.getType()).thenReturn(arrowType);
-
+        mockFieldArrowType(ArrowType.Utf8.INSTANCE);
         setupSchemaCaseInsensitive(CASE_INSENSITIVE_FALSE);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor capturedExtractor = extractorCaptor.getValue();
+        VarCharExtractor capturedExtractor = captureExtractorAfterWriteMockField(VarCharExtractor.class);
         assertNotNull("VarCharExtractor should not be null", capturedExtractor);
 
         Map<String, Object> context = new HashMap<>();
@@ -192,15 +172,9 @@ public class EdgeRowWriterTest
     @Test
     public void writeRowTemplate_WithNullCaseInsensitiveConfigAndUtf8Type_CreatesVarCharExtractor() throws Exception
     {
-        ArrowType arrowType = ArrowType.Utf8.INSTANCE;
-        when(mockField.getType()).thenReturn(arrowType);
+        mockFieldArrowType(ArrowType.Utf8.INSTANCE);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor capturedExtractor = extractorCaptor.getValue();
+        VarCharExtractor capturedExtractor = captureExtractorAfterWriteMockField(VarCharExtractor.class);
         assertNotNull("VarCharExtractor should not be null", capturedExtractor);
 
         Map<String, Object> context = new HashMap<>();
@@ -214,15 +188,9 @@ public class EdgeRowWriterTest
     @Test
     public void writeRowTemplate_WithEmptyConfigOptionsAndUtf8Type_CreatesVarCharExtractor() throws Exception
     {
-        ArrowType arrowType = ArrowType.Utf8.INSTANCE;
-        when(mockField.getType()).thenReturn(arrowType);
+        mockFieldArrowType(ArrowType.Utf8.INSTANCE);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), extractorCaptor.capture());
-
-        VarCharExtractor capturedExtractor = extractorCaptor.getValue();
+        VarCharExtractor capturedExtractor = captureExtractorAfterWriteMockField(VarCharExtractor.class);
         assertNotNull("VarCharExtractor should not be null", capturedExtractor);
 
         Map<String, Object> context = new HashMap<>();
@@ -236,8 +204,7 @@ public class EdgeRowWriterTest
     @Test(expected = NullPointerException.class)
     public void writeRowTemplate_WithNullConfigOptionsAndUtf8Type_ThrowsNullPointerException()
     {
-        ArrowType arrowType = ArrowType.Utf8.INSTANCE;
-        when(mockField.getType()).thenReturn(arrowType);
+        mockFieldArrowType(ArrowType.Utf8.INSTANCE);
 
         EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, null);
     }
@@ -245,8 +212,7 @@ public class EdgeRowWriterTest
     @Test(expected = NullPointerException.class)
     public void writeRowTemplate_WithNullRowWriterBuilderAndUtf8Type_ThrowsNullPointerException()
     {
-        ArrowType arrowType = ArrowType.Utf8.INSTANCE;
-        when(mockField.getType()).thenReturn(arrowType);
+        mockFieldArrowType(ArrowType.Utf8.INSTANCE);
 
         EdgeRowWriter.writeRowTemplate(null, mockField, configOptions);
     }
@@ -260,17 +226,10 @@ public class EdgeRowWriterTest
     @Test
     public void writeRowTemplate_WithCaseInsensitiveConfigAndBigIntType_CreatesBigIntExtractor() throws Exception
     {
-        ArrowType arrowType = new ArrowType.Int(64, true);
-        when(mockField.getType()).thenReturn(arrowType);
-
+        mockFieldArrowType(new ArrowType.Int(64, true));
         setupSchemaCaseInsensitive(CASE_INSENSITIVE_TRUE);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
-
-        ArgumentCaptor<BigIntExtractor> extractorCaptor = ArgumentCaptor.forClass(BigIntExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), extractorCaptor.capture());
-
-        BigIntExtractor capturedExtractor = extractorCaptor.getValue();
+        BigIntExtractor capturedExtractor = captureExtractorAfterWriteMockField(BigIntExtractor.class);
         assertNotNull("BigIntExtractor should not be null", capturedExtractor);
 
         Map<String, Object> context = new HashMap<>();
@@ -289,17 +248,10 @@ public class EdgeRowWriterTest
     @Test
     public void writeRowTemplate_WithCaseInsensitiveConfigAndFloat4Type_CreatesFloat4Extractor() throws Exception
     {
-        ArrowType arrowType = new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
-        when(mockField.getType()).thenReturn(arrowType);
-
+        mockFieldArrowType(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE));
         setupSchemaCaseInsensitive(CASE_INSENSITIVE_TRUE);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
-
-        ArgumentCaptor<Float4Extractor> extractorCaptor = ArgumentCaptor.forClass(Float4Extractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), extractorCaptor.capture());
-
-        Float4Extractor capturedExtractor = extractorCaptor.getValue();
+        Float4Extractor capturedExtractor = captureExtractorAfterWriteMockField(Float4Extractor.class);
         assertNotNull("Float4Extractor should not be null", capturedExtractor);
 
         Map<String, Object> context = new HashMap<>();
@@ -321,14 +273,8 @@ public class EdgeRowWriterTest
     public void writeRowTemplate_WithEdgeContextAndBoolType_ExtractsValidBoolean() throws Exception
     {
         edgeContext.put(IS_ACTIVE, true);
-        Field bitField = new Field(IS_ACTIVE, FieldType.nullable(new ArrowType.Bool()), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(IS_ACTIVE), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureExtractorAfterWriteField(edgeFieldBool(IS_ACTIVE), BitExtractor.class, IS_ACTIVE);
         NullableBitHolder holder = new NullableBitHolder();
         extractor.extract(edgeContext, holder);
         assertEquals(1, holder.isSet);
@@ -339,14 +285,8 @@ public class EdgeRowWriterTest
     public void writeRowTemplate_WithEdgeContextAndUtf8Type_ExtractsValidString() throws Exception
     {
         edgeContext.put(DESCRIPTION, FRIENDSHIP);
-        Field varcharField = new Field(DESCRIPTION, FieldType.nullable(new ArrowType.Utf8()), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(DESCRIPTION), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWriteField(edgeFieldUtf8(DESCRIPTION), VarCharExtractor.class, DESCRIPTION);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(edgeContext, holder);
         assertEquals(1, holder.isSet);
@@ -358,14 +298,8 @@ public class EdgeRowWriterTest
     {
         Date testDate = new Date();
         edgeContext.put(CREATED_AT, testDate);
-        Field dateField = new Field(CREATED_AT, FieldType.nullable(Types.MinorType.DATEMILLI.getType()), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, dateField, configOptions);
-
-        ArgumentCaptor<DateMilliExtractor> extractorCaptor = ArgumentCaptor.forClass(DateMilliExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(CREATED_AT), extractorCaptor.capture());
-
-        DateMilliExtractor extractor = extractorCaptor.getValue();
+        DateMilliExtractor extractor = captureExtractorAfterWriteField(edgeFieldDateMilli(CREATED_AT), DateMilliExtractor.class, CREATED_AT);
         NullableDateMilliHolder holder = new NullableDateMilliHolder();
         extractor.extract(edgeContext, holder);
         assertEquals(1, holder.isSet);
@@ -376,14 +310,8 @@ public class EdgeRowWriterTest
     public void writeRowTemplate_WithEdgeContextAndIntType_ExtractsValidInteger() throws Exception
     {
         edgeContext.put(SINCE, 2020);
-        Field intField = new Field(SINCE, FieldType.nullable(new ArrowType.Int(32, true)), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, intField, configOptions);
-
-        ArgumentCaptor<IntExtractor> extractorCaptor = ArgumentCaptor.forClass(IntExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(SINCE), extractorCaptor.capture());
-
-        IntExtractor extractor = extractorCaptor.getValue();
+        IntExtractor extractor = captureExtractorAfterWriteField(edgeFieldInt32(SINCE), IntExtractor.class, SINCE);
         NullableIntHolder holder = new NullableIntHolder();
         extractor.extract(edgeContext, holder);
         assertEquals(1, holder.isSet);
@@ -394,14 +322,8 @@ public class EdgeRowWriterTest
     public void writeRowTemplate_WithEdgeContextAndFloat8Type_ExtractsValidDouble() throws Exception
     {
         edgeContext.put(WEIGHT, 0.8);
-        Field doubleField = new Field(WEIGHT, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, doubleField, configOptions);
-
-        ArgumentCaptor<Float8Extractor> extractorCaptor = ArgumentCaptor.forClass(Float8Extractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(WEIGHT), extractorCaptor.capture());
-
-        Float8Extractor extractor = extractorCaptor.getValue();
+        Float8Extractor extractor = captureExtractorAfterWriteField(edgeFieldFloat8(WEIGHT), Float8Extractor.class, WEIGHT);
         NullableFloat8Holder holder = new NullableFloat8Holder();
         extractor.extract(edgeContext, holder);
         assertEquals(1, holder.isSet);
@@ -412,14 +334,8 @@ public class EdgeRowWriterTest
     public void writeRowTemplate_WithEdgeContextAndBigIntType_ExtractsValidLong() throws Exception
     {
         edgeContext.put(BIG_VALUE, 1234567890123456789L);
-        Field bigintField = new Field(BIG_VALUE, FieldType.nullable(new ArrowType.Int(64, true)), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, bigintField, configOptions);
-
-        ArgumentCaptor<BigIntExtractor> extractorCaptor = ArgumentCaptor.forClass(BigIntExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(BIG_VALUE), extractorCaptor.capture());
-
-        BigIntExtractor extractor = extractorCaptor.getValue();
+        BigIntExtractor extractor = captureExtractorAfterWriteField(edgeFieldInt64(BIG_VALUE), BigIntExtractor.class, BIG_VALUE);
         NullableBigIntHolder holder = new NullableBigIntHolder();
         extractor.extract(edgeContext, holder);
         assertEquals(1, holder.isSet);
@@ -430,14 +346,8 @@ public class EdgeRowWriterTest
     public void writeRowTemplate_WithEdgeContextAndFloat4Type_ExtractsValidFloat() throws Exception
     {
         edgeContext.put(FLOAT_VALUE, 2.5f);
-        Field floatField = new Field(FLOAT_VALUE, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, floatField, configOptions);
-
-        ArgumentCaptor<Float4Extractor> extractorCaptor = ArgumentCaptor.forClass(Float4Extractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(FLOAT_VALUE), extractorCaptor.capture());
-
-        Float4Extractor extractor = extractorCaptor.getValue();
+        Float4Extractor extractor = captureExtractorAfterWriteField(edgeFieldFloat4(FLOAT_VALUE), Float4Extractor.class, FLOAT_VALUE);
         NullableFloat4Holder holder = new NullableFloat4Holder();
         extractor.extract(edgeContext, holder);
         assertEquals(1, holder.isSet);
@@ -449,14 +359,8 @@ public class EdgeRowWriterTest
     {
         setupSchemaCaseInsensitive(CASE_INSENSITIVE_FALSE);
         edgeContext.put(TESTFIELD_LOWER, TEST_VALUE);
-        Field varcharField = new Field(TESTFIELD, FieldType.nullable(new ArrowType.Utf8()), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, varcharField, configOptions);
-
-        ArgumentCaptor<VarCharExtractor> extractorCaptor = ArgumentCaptor.forClass(VarCharExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(TESTFIELD), extractorCaptor.capture());
-
-        VarCharExtractor extractor = extractorCaptor.getValue();
+        VarCharExtractor extractor = captureExtractorAfterWriteField(edgeFieldUtf8(TESTFIELD), VarCharExtractor.class, TESTFIELD);
         NullableVarCharHolder holder = new NullableVarCharHolder();
         extractor.extract(edgeContext, holder);
         assertEquals(0, holder.isSet);
@@ -466,14 +370,8 @@ public class EdgeRowWriterTest
     public void writeRowTemplate_WithEdgeContextAndSpacesInBitField_HandlesUnset() throws Exception
     {
         edgeContext.put(EMPTY_FIELD, SPACES);
-        Field bitField = new Field(EMPTY_FIELD, FieldType.nullable(new ArrowType.Bool()), null);
 
-        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, bitField, configOptions);
-
-        ArgumentCaptor<BitExtractor> extractorCaptor = ArgumentCaptor.forClass(BitExtractor.class);
-        verify(mockRowWriterBuilder).withExtractor(eq(EMPTY_FIELD), extractorCaptor.capture());
-
-        BitExtractor extractor = extractorCaptor.getValue();
+        BitExtractor extractor = captureExtractorAfterWriteField(edgeFieldBool(EMPTY_FIELD), BitExtractor.class, EMPTY_FIELD);
         NullableBitHolder holder = new NullableBitHolder();
         extractor.extract(edgeContext, holder);
         assertEquals(0, holder.isSet);
@@ -482,5 +380,61 @@ public class EdgeRowWriterTest
     private void setupSchemaCaseInsensitive(String caseInsensitiveValue)
     {
         configOptions.put(Constants.SCHEMA_CASE_INSEN, caseInsensitiveValue);
+    }
+
+    private void mockFieldArrowType(ArrowType arrowType)
+    {
+        when(mockField.getType()).thenReturn(arrowType);
+    }
+
+    private <E extends Extractor> E captureExtractorAfterWriteMockField(Class<E> extractorType)
+    {
+        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, mockField, configOptions);
+        ArgumentCaptor<E> captor = ArgumentCaptor.forClass(extractorType);
+        verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD), captor.capture());
+        return captor.getValue();
+    }
+
+    private <E extends Extractor> E captureExtractorAfterWriteField(Field field, Class<E> extractorType, String registeredFieldName)
+    {
+        EdgeRowWriter.writeRowTemplate(mockRowWriterBuilder, field, configOptions);
+        ArgumentCaptor<E> captor = ArgumentCaptor.forClass(extractorType);
+        verify(mockRowWriterBuilder).withExtractor(eq(registeredFieldName), captor.capture());
+        return captor.getValue();
+    }
+
+    private Field edgeFieldBool(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Bool()), null);
+    }
+
+    private Field edgeFieldUtf8(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Utf8()), null);
+    }
+
+    private Field edgeFieldDateMilli(String name)
+    {
+        return new Field(name, FieldType.nullable(Types.MinorType.DATEMILLI.getType()), null);
+    }
+
+    private Field edgeFieldInt32(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Int(32, true)), null);
+    }
+
+    private Field edgeFieldInt64(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.Int(64, true)), null);
+    }
+
+    private Field edgeFieldFloat4(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
+    }
+
+    private Field edgeFieldFloat8(String name)
+    {
+        return new Field(name, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
     }
 }

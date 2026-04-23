@@ -105,7 +105,6 @@ public class NeptuneRecordHandlerTest extends TestBase {
     private S3BlockSpillReader spillReader;
     private EncryptionKeyFactory keyFactory = new LocalKeyFactory();
     private List<ByteHolder> mockS3Storage = new ArrayList<>();
-    public CompletableFuture<List<Result>> results;
 
     @Mock
     private NeptuneConnection neptuneConnection;

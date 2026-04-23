@@ -56,9 +56,7 @@ import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -190,35 +188,18 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         logger.info("doGetTable - exit");
     }
 
-    private void setupQueryPassthroughTest(String graphType) throws NoSuchFieldException, IllegalAccessException
+    private void initHandlerForQueryPassthrough(String graphType, NeptuneConnection neptuneConn)
     {
-        Map<String, String> config = new HashMap<>();
+        Map<String, String> config = new HashMap<>(DEFAULT_PARAMS);
         config.put(Constants.CFG_GRAPH_TYPE, graphType);
-        Field configOptionsField = handler.getClass().getSuperclass().getSuperclass()
-                .getDeclaredField("configOptions");
-        configOptionsField.setAccessible(true);
-        configOptionsField.set(handler, config);
-
-        List<Column> columns;
-        if ("rdf".equals(graphType)) {
-            columns = Arrays.asList(
-                    Column.builder().name("s").type("string").build(),
-                    Column.builder().name("p").type("string").build(),
-                    Column.builder().name("o").type("string").build()
-            );
-        } else {
-            columns = Arrays.asList(
-                    Column.builder().name("code").type("string").build(),
-                    Column.builder().name("city").type("string").build()
-            );
-        }
+        handler = new NeptuneMetadataHandler(glue, neptuneConn,
+                new LocalKeyFactory(), mock(SecretsManagerClient.class), mock(AthenaClient.class), "spill-bucket",
+                "spill-prefix", config);
     }
 
     @Test
     public void doGetQueryPassthroughSchema_WithRdfAndValidSparql_ReturnsValidSchema() throws Exception
     {
-        setupQueryPassthroughTest("rdf");
-
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("s", "subject1");
         resultMap.put("p", "predicate1");
@@ -228,9 +209,7 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         when(sparqlConnection.hasNext()).thenReturn(true, false);
         when(sparqlConnection.next()).thenReturn(resultMap);
 
-        Field connField = NeptuneMetadataHandler.class.getDeclaredField("neptuneConnection");
-        connField.setAccessible(true);
-        connField.set(handler, sparqlConnection);
+        initHandlerForQueryPassthrough("rdf", sparqlConnection);
 
         GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
                 createPassthroughRequest("SELECT ?s ?p ?o WHERE { ?s ?p ?o }"));
@@ -243,22 +222,7 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     @Test(expected = IllegalArgumentException.class)
     public void doGetQueryPassthroughSchema_WithInvalidGraphType_ThrowsIllegalArgumentException() throws Exception
     {
-        Map<String, String> configOptions = new HashMap<>();
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "INVALID_TYPE");
-
-        Field configOptionsField = handler.getClass().getSuperclass().getSuperclass()
-                .getDeclaredField("configOptions");
-        configOptionsField.setAccessible(true);
-        configOptionsField.set(handler, configOptions);
-
-        Table table = Table.builder()
-                .name("table1")
-                .storageDescriptor(StorageDescriptor.builder()
-                        .columns(Collections.singletonList(
-                                Column.builder().name("col1").type("string").build()
-                        ))
-                        .build())
-                .build();
+        initHandlerForQueryPassthrough("INVALID_TYPE", neptuneConnection);
 
         GetTableRequest req = createPassthroughRequest("g.V().hasLabel(\"airport\").valueMap()");
         handler.doGetQueryPassthroughSchema(allocator, req);
@@ -289,14 +253,10 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     @Test(expected = RuntimeException.class)
     public void doGetQueryPassthroughSchema_WithRdfAndInvalidSparql_ThrowsRuntimeException() throws Exception
     {
-        setupQueryPassthroughTest("rdf");
-
         NeptuneSparqlConnection sparqlConnection = mock(NeptuneSparqlConnection.class);
         doThrow(new RuntimeException("Invalid SPARQL query")).when(sparqlConnection).runQuery(anyString());
 
-        Field connField = NeptuneMetadataHandler.class.getDeclaredField("neptuneConnection");
-        connField.setAccessible(true);
-        connField.set(handler, sparqlConnection);
+        initHandlerForQueryPassthrough("rdf", sparqlConnection);
 
         handler.doGetQueryPassthroughSchema(allocator, createPassthroughRequest("INVALID SPARQL QUERY"));
     }
@@ -304,7 +264,7 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     @Test(expected = RuntimeException.class)
     public void doGetQueryPassthroughSchema_WithPropertyGraphAndEmptyResponse_ThrowsRuntimeException() throws Exception
     {
-        setupQueryPassthroughTest("propertygraph");
+        initHandlerForQueryPassthrough("propertygraph", neptuneConnection);
 
         GraphTraversal graphTraversalMock = mock(GraphTraversal.class);
 
@@ -326,7 +286,7 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     @Test
     public void doGetQueryPassthroughSchema_WithPropertyGraphAndValidGremlin_ReturnsValidSchema() throws Exception
     {
-        setupQueryPassthroughTest("propertygraph");
+        initHandlerForQueryPassthrough("propertygraph", neptuneConnection);
 
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("code", "SFO");
@@ -354,7 +314,7 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     @Test
     public void doGetQueryPassthroughSchema_WithPropertyGraphAndPartialColumns_ReturnsSchemaWithAvailableColumns() throws Exception
     {
-        setupQueryPassthroughTest("propertygraph");
+        initHandlerForQueryPassthrough("propertygraph", neptuneConnection);
 
         // Create a result map with only one column, while Glue schema has two columns
         Map<String, Object> resultMap = new HashMap<>();
