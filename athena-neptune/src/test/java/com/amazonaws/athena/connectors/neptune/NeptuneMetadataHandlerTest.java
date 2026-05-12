@@ -190,7 +190,7 @@ public class NeptuneMetadataHandlerTest extends TestBase {
 
     private void initHandlerForQueryPassthrough(String graphType, NeptuneConnection neptuneConn)
     {
-        Map<String, String> config = new HashMap<>(DEFAULT_PARAMS);
+        Map<String, String> config = new HashMap<>();
         config.put(Constants.CFG_GRAPH_TYPE, graphType);
         handler = new NeptuneMetadataHandler(glue, neptuneConn,
                 new LocalKeyFactory(), mock(SecretsManagerClient.class), mock(AthenaClient.class), "spill-bucket",
