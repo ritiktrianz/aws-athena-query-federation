@@ -34,7 +34,7 @@ import java.util.Map;
 
 public class CrossAccountCredentialsProvider
 {
-    private static final String CROSS_ACCOUNT_ROLE_ARN_CONFIG = "cross_account_role_arn";
+    public static final String CROSS_ACCOUNT_ROLE_ARN_CONFIG = "cross_account_role_arn";
     private static final Logger logger = LoggerFactory.getLogger(CrossAccountCredentialsProvider.class);
 
     private CrossAccountCredentialsProvider() {}
@@ -53,6 +53,6 @@ public class CrossAccountCredentialsProvider
             AwsSessionCredentials awsSessionCredentials = AwsSessionCredentials.builder().accessKeyId(credentials.accessKeyId()).secretAccessKey(credentials.secretAccessKey()).sessionToken(credentials.sessionToken()).build();
             return StaticCredentialsProvider.create(awsSessionCredentials);
         }
-        return DefaultCredentialsProvider.create();
+        return DefaultCredentialsProvider.builder().build();
     }
 }

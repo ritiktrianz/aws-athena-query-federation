@@ -145,9 +145,39 @@ public class DatabaseConnectionConfigBuilder
         Validate.isTrue(dbType.equals(this.engine), "JDBC Connection string must be prepended by correct database type.");
 
         final Optional<String> optionalSecretName = extractSecretName(jdbcConnectionString);
+        final RdsIamConnectionStringParser.ParsedJdbcConnection parsedJdbcConnection =
+                RdsIamConnectionStringParser.parse(jdbcConnectionString, getDefaultPort(dbType));
 
-        return optionalSecretName.map(s -> new DatabaseConnectionConfig(catalogName, this.engine, jdbcConnectionString, s))
-                .orElseGet(() -> new DatabaseConnectionConfig(catalogName, this.engine, jdbcConnectionString));
+        final String resolvedJdbcConnectionString = parsedJdbcConnection.getJdbcConnectionString();
+        if (parsedJdbcConnection.isIamAuthEnabled()) {
+            if (optionalSecretName.isPresent()) {
+                throw new AthenaConnectorException("Cannot combine Secrets Manager credentials with RDS IAM authentication",
+                        ErrorDetails.builder().errorCode(FederationSourceErrorCode.INVALID_INPUT_EXCEPTION.toString()).build());
+            }
+            return new DatabaseConnectionConfig(catalogName, this.engine, resolvedJdbcConnectionString,
+                    parsedJdbcConnection.getIamAuthConfiguration());
+        }
+
+        return optionalSecretName.map(s -> new DatabaseConnectionConfig(catalogName, this.engine, resolvedJdbcConnectionString, s))
+                .orElseGet(() -> new DatabaseConnectionConfig(catalogName, this.engine, resolvedJdbcConnectionString));
+    }
+
+    private static int getDefaultPort(final String dbType)
+    {
+        switch (dbType) {
+            case "postgres":
+                return 5432;
+            case "mysql":
+                return 3306;
+            case "redshift":
+                return 5439;
+            case "oracle":
+                return 1521;
+            case "sqlserver":
+                return 1433;
+            default:
+                return 0;
+        }
     }
 
     private Optional<String> extractSecretName(final String jdbcConnectionString)
