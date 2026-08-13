@@ -5,6 +5,8 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  # Required so merge queue can run status checks on speculative merge commits.
+  merge_group:
   schedule:
     - cron: '0 12 * * 6'
 
