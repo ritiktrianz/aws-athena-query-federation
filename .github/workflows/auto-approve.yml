@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Dependabot metadata
         id: dependabot-metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v1
       - name: Enable auto-merge for Dependabot PRs
         # Prefer squash when the branch allows it. If a merge queue owns the strategy,
         # --squash is rejected - fall back to --auto so the PR still enters the queue.
