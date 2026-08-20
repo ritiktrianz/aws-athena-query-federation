@@ -104,14 +104,14 @@ public class ClickHouseRecordHandlerTest
     }
 
     @Test
-    public void clickHouseRecordHandler_ConstructorWithDatabaseConnectionConfig_PassesEmptyJdbcProperties()
+    public void constructor_withDatabaseConnectionConfig_usesEmptyJdbcProperties()
     {
         Assert.assertTrue(ClickHouseConstants.JDBC_PROPERTIES.isEmpty());
         Assert.assertFalse(ClickHouseConstants.JDBC_PROPERTIES.containsKey("databaseTerm"));
     }
 
     @Test
-    public void testBuildSplitSqlWithQueryPassThroughEnabled()
+    public void buildSplitSql_withQueryPassThroughEnabled_returnsPassthroughPreparedStatement()
             throws SQLException
     {
         Mockito.when(mockConstraints.isQueryPassThrough()).thenReturn(true);
@@ -154,7 +154,7 @@ public class ClickHouseRecordHandlerTest
     }
 
     @Test
-    public void testBuildSplitSqlWithQueryPassThroughDisabled()
+    public void buildSplitSql_withQueryPassThroughDisabled_usesJdbcSplitQueryBuilder()
             throws SQLException
     {
         Mockito.when(mockConstraints.isQueryPassThrough()).thenReturn(false);
@@ -198,7 +198,7 @@ public class ClickHouseRecordHandlerTest
     }
 
     @Test(expected = SQLException.class)
-    public void testBuildSplitSqlWithSQLExceptionFromJdbcSplitQueryBuilder()
+    public void buildSplitSql_whenJdbcSplitQueryBuilderThrowsSQLException_throwsSQLException()
             throws SQLException
     {
         Mockito.when(mockConstraints.isQueryPassThrough()).thenReturn(false);
