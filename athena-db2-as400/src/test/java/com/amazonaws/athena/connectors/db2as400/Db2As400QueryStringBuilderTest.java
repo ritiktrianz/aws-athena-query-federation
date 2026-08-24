@@ -38,8 +38,8 @@ public class Db2As400QueryStringBuilderTest {
     {
         Split split = Mockito.mock(Split.class);
         Db2As400QueryStringBuilder builder = new Db2As400QueryStringBuilder(QUOTE_CHARACTER);
-        Assert.assertEquals(" FROM \"default\".table ", builder.getFromClauseWithSplit("default", "", "table", split));
-        Assert.assertEquals(" FROM \"default\".schema.table ", builder.getFromClauseWithSplit("default", "schema", "table", split));
+        Assert.assertEquals(" FROM \"default\".\"table\" ", builder.getFromClauseWithSplit("default", "", "table", split));
+        Assert.assertEquals(" FROM \"default\".\"schema\".\"table\" ", builder.getFromClauseWithSplit("default", "schema", "table", split));
     }
 
     @Test

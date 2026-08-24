@@ -54,9 +54,9 @@ public class Db2As400QueryStringBuilder extends JdbcSplitQueryBuilder
             tableName.append(quote(catalog)).append('.');
         }
         if (!Strings.isNullOrEmpty(schema)) {
-            tableName.append(schema).append('.');
+            tableName.append(quote(schema)).append('.');
         }
-        tableName.append(table);
+        tableName.append(quote(table));
         return String.format(" FROM %s ", tableName);
     }
 
