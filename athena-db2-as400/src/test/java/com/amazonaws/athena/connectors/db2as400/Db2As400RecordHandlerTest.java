@@ -104,7 +104,7 @@ public class Db2As400RecordHandlerTest {
                 .put("testCol4", valueSet)
                 .build());
 
-        String expectedSql = "SELECT \"testCol1\", \"testCol2\", \"testCol3\", \"testCol4\" FROM \"testSchema\".\"testTable\"  WHERE (\"testCol4\" = ?)";
+        String expectedSql = "SELECT \"testCol1\", \"testCol2\", \"testCol3\", \"testCol4\" FROM testSchema.testTable  WHERE (\"testCol4\" = ?)";
         PreparedStatement expectedPreparedStatement = Mockito.mock(PreparedStatement.class);
         Mockito.when(this.connection.prepareStatement(Mockito.eq(expectedSql))).thenReturn(expectedPreparedStatement);
         PreparedStatement preparedStatement = this.db2As400RecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
