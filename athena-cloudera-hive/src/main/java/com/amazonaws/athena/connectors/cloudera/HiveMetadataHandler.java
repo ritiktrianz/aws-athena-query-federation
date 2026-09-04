@@ -184,21 +184,18 @@ public class HiveMetadataHandler extends JdbcMetadataHandler
             int partitionCounter = 0;
             StringBuilder columnCondition = new StringBuilder();
             while (partitionColumns.length > partitionCounter) {
-                String partitionValue = partitionColumns[partitionCounter].split("=")[1];
-                String columnName = partitionColumns[partitionCounter].split("=")[0];
-                String columnType = columnInfo.get(columnName).toUpperCase();
+                String partitionKeyValue = partitionColumns[partitionCounter];
+                int equalsIndex = partitionKeyValue.indexOf('=');
+                String columnName = equalsIndex >= 0 ? partitionKeyValue.substring(0, equalsIndex) : partitionKeyValue;
+                String partitionValue = equalsIndex >= 0 ? partitionKeyValue.substring(equalsIndex + 1) : "";
+                String columnType = columnInfo.get(columnName);
+                LOGGER.debug("partition column {} type {}", columnName, columnType);
                 if (partitionValue.equalsIgnoreCase("__HIVE_DEFAULT_PARTITION__")) {
-                    columnCondition.append(" " + columnName).append(" is").append(" NULL");
+                    columnCondition.append(" ").append(HiveUtils.quoteIdentifier(columnName)).append(" is NULL");
                 }
                 else {
-                    if (columnType != null && (columnType.equalsIgnoreCase("STRING") || columnType.equalsIgnoreCase("VARCHAR"))) {
-                        columnCondition.append(" " + columnName).append("=").append("'");
-                        columnCondition.append(partitionValue).append("'");
-                    }
-                    else {
-                        columnCondition.append(" " + columnName).append("=");
-                        columnCondition.append(partitionValue);
-                    }
+                    columnCondition.append(" ").append(HiveUtils.quoteIdentifier(columnName))
+                            .append("=").append(HiveUtils.partitionValueExpression(columnType, partitionValue));
                 }
                 partitionCounter++;
                 if (partitionColumns.length > partitionCounter) {

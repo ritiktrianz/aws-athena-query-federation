@@ -41,6 +41,55 @@ public class HiveUtilsTest
     }
 
     @Test
+    public void quoteStringLiteral_whenValueIsSimple_returnsSingleQuotedLiteral()
+    {
+        assertEquals("'1'", HiveUtils.quoteStringLiteral("1"));
+    }
+
+    @Test
+    public void quoteStringLiteral_whenValueContainsOrTrue_staysInsideQuotedLiteral()
+    {
+        assertEquals("'1 OR true --'", HiveUtils.quoteStringLiteral("1 OR true --"));
+    }
+
+    @Test
+    public void quoteStringLiteral_whenValueContainsSingleQuote_doublesEmbeddedQuote()
+    {
+        assertEquals("'O''REILLY'", HiveUtils.quoteStringLiteral("O'REILLY"));
+    }
+
+    @Test
+    public void quoteStringLiteral_whenValueIsMixedCase_preservesCase()
+    {
+        assertEquals("'Test'", HiveUtils.quoteStringLiteral("Test"));
+    }
+
+    @Test
+    public void quoteStringLiteral_whenValueEndsWithBackslash_escapesBackslashSoLiteralStaysClosed()
+    {
+        assertEquals("'x\\\\'", HiveUtils.quoteStringLiteral("x\\"));
+    }
+
+    @Test
+    public void partitionValueExpression_whenBooleanTrue_returnsUnquotedTrue()
+    {
+        assertEquals("true", HiveUtils.partitionValueExpression("boolean", "true"));
+        assertEquals("true", HiveUtils.partitionValueExpression("BOOLEAN", "TRUE"));
+    }
+
+    @Test
+    public void partitionValueExpression_whenBooleanFalse_returnsUnquotedFalse()
+    {
+        assertEquals("false", HiveUtils.partitionValueExpression("boolean", "false"));
+    }
+
+    @Test
+    public void partitionValueExpression_whenBooleanValueIsNotTrueOrFalse_quotesAsStringLiteral()
+    {
+        assertEquals("'true OR true --'", HiveUtils.partitionValueExpression("boolean", "true OR true --"));
+    }
+
+    @Test
     public void quoteIdentifier_whenIdentifierIsEmpty_returnsQuotedEmptyIdentifier()
     {
         assertEquals("``", HiveUtils.quoteIdentifier(""));

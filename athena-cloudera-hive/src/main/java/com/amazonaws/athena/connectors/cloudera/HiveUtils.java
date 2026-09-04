@@ -47,6 +47,31 @@ public class HiveUtils
     }
 
     /**
+     * Single-quoted Hive string literal. Hive string literals accept both quote-doubling and C-style
+     * backslash escapes, so backslashes are escaped first, then
+     * {@link HiveSqlDialect#quoteStringLiteral(String)} applies Hive dialect quoting rules.
+     */
+    public static String quoteStringLiteral(String value)
+    {
+        String escaped = value.replace("\\", "\\\\");
+        return HIVE_SQL_DIALECT.quoteStringLiteral(escaped);
+    }
+
+    /**
+     * Right-hand side of a partition equality predicate. Hive does not match BOOLEAN partitions
+     * against a quoted string ({@code active='true'} returns no rows), so {@code true}/{@code false}
+     * stay unquoted. Any other value is a string literal so it cannot change SQL structure.
+     */
+    public static String partitionValueExpression(String columnType, String partitionValue)
+    {
+        if (columnType != null && columnType.toUpperCase().contains("BOOLEAN")
+                && ("true".equalsIgnoreCase(partitionValue) || "false".equalsIgnoreCase(partitionValue))) {
+            return partitionValue.toLowerCase();
+        }
+        return quoteStringLiteral(partitionValue);
+    }
+
+    /**
      * {@code schema.table} for metadata statements, upper-casing each segment then quoting so names
      * cannot break out of identifier context.
      */
@@ -57,14 +82,11 @@ public class HiveUtils
     }
 
     /**
-     * Single-quoted pattern for {@code SHOW TABLE EXTENDED IN ... LIKE '...'}. Hive string literals
-     * accept both quote-doubling and C-style backslash escapes. Backslashes are escaped first, then
-     * {@link HiveSqlDialect#quoteStringLiteral(String)} applies Hive dialect quoting rules. The name
-     * is upper-cased to match prior connector behavior.
+     * Single-quoted pattern for {@code SHOW TABLE EXTENDED IN ... LIKE '...'}. The name is
+     * upper-cased to match prior connector behavior.
      */
     public static String likePatternLiteral(String pattern)
     {
-        String escaped = pattern.toUpperCase().replace("\\", "\\\\");
-        return HIVE_SQL_DIALECT.quoteStringLiteral(escaped);
+        return quoteStringLiteral(pattern.toUpperCase());
     }
 }
