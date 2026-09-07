@@ -58,17 +58,25 @@ public class HiveUtils
     }
 
     /**
-     * Right-hand side of a partition equality predicate. Hive does not match BOOLEAN partitions
-     * against a quoted string ({@code active='true'} returns no rows), so {@code true}/{@code false}
-     * stay unquoted. Any other value is a string literal so it cannot change SQL structure.
+     * Right-hand side of a partition equality predicate. Quote STRING, VARCHAR, CHAR, and DATE;
+     * leave INT/BOOLEAN/TIMESTAMP unquoted. {@code VARCHAR} is covered by {@code contains("CHAR")}.
      */
     public static String partitionValueExpression(String columnType, String partitionValue)
     {
-        if (columnType != null && columnType.toUpperCase().contains("BOOLEAN")
-                && ("true".equalsIgnoreCase(partitionValue) || "false".equalsIgnoreCase(partitionValue))) {
-            return partitionValue.toLowerCase();
+        if (isQuotedPartitionType(columnType)) {
+            return quoteStringLiteral(partitionValue);
         }
-        return quoteStringLiteral(partitionValue);
+        return partitionValue;
+    }
+    
+    private static boolean isQuotedPartitionType(String columnType)
+    {
+        if (columnType == null) {
+            return false;
+        }
+        String type = columnType.toUpperCase();
+        return type.contains("STRING") || type.contains("CHAR")
+                || type.equals("DATE") || type.startsWith("DATE(");
     }
 
     /**

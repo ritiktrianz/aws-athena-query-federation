@@ -158,7 +158,7 @@ public class HiveMetadataHandlerTest
         GetTableLayoutRequest getTableLayoutRequest = new GetTableLayoutRequest(this.federatedIdentity, QUERY_ID,
                 CATALOG_NAME, tempTableName, constraints, partitionSchema, partitionCols);
         String value2 = "case_date=01-01-2000/case_number=0/case_instance=89898989/case_location=__HIVE_DEFAULT_PARTITION__";
-        String value3 = "case_date=02-01-2000/case_number=1/case_instance=89898990/case_location=Hyderabad";
+        String value3 = "case_date=02-01-2000/case_number=1/case_instance=89898990/case_location=west";
         String[] columns2 = {"Partition"};
         int[] types2 = {Types.VARCHAR};
         Object[][] values1 = {{value3}, {value2}};
@@ -186,8 +186,10 @@ public class HiveMetadataHandlerTest
             actualValues.add(BlockUtils.rowToString(getTableLayoutResponse.getPartitions(), i));
         }
         assertEquals(2, actualValues.size());
-        assertEquals("[partition :  `case_date`='02-01-2000' and `case_number`='1' and `case_instance`='89898990' and `case_location`='Hyderabad']", actualValues.get(0));
-        assertEquals("[partition :  `case_date`='01-01-2000' and `case_number`='0' and `case_instance`='89898989' and `case_location` is NULL]", actualValues.get(1));
+        assertEquals(new HashSet<>(Arrays.asList(
+                "[partition :  `case_date`='02-01-2000' and `case_number`=1 and `case_instance`=89898990 and `case_location`='west']",
+                "[partition :  `case_date`='01-01-2000' and `case_number`=0 and `case_instance`=89898989 and `case_location` is NULL]")),
+                new HashSet<>(actualValues));
         SchemaBuilder expectedSchemaBuilder = SchemaBuilder.newBuilder();
         expectedSchemaBuilder.addField(FieldBuilder.newBuilder("partition", org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType()).build());
         Schema expectedSchema = expectedSchemaBuilder.build();
@@ -357,7 +359,7 @@ public class HiveMetadataHandlerTest
         GetTableLayoutRequest getTableLayoutRequest = new GetTableLayoutRequest(this.federatedIdentity, QUERY_ID,
                 CATALOG_NAME, tempTableName, constraints, partitionSchema, partitionCols);
         String value2 = "case_date=01-01-2000/case_number=0/case_instance=89898989/case_location=__HIVE_DEFAULT_PARTITION__";
-        String value3 = "case_date=02-01-2000/case_number=1/case_instance=89898990/case_location=Hyderabad";
+        String value3 = "case_date=02-01-2000/case_number=1/case_instance=89898990/case_location=west";
         String[] columns2 = {"Partition"};
         int[] types2 = {Types.VARCHAR};
         Object[][] values1 = {{value2}, {value3}};

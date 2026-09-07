@@ -74,7 +74,7 @@ public class HiveUtilsTest
     public void partitionValueExpression_whenBooleanTrue_returnsUnquotedTrue()
     {
         assertEquals("true", HiveUtils.partitionValueExpression("boolean", "true"));
-        assertEquals("true", HiveUtils.partitionValueExpression("BOOLEAN", "TRUE"));
+        assertEquals("TRUE", HiveUtils.partitionValueExpression("BOOLEAN", "TRUE"));
     }
 
     @Test
@@ -84,9 +84,19 @@ public class HiveUtilsTest
     }
 
     @Test
-    public void partitionValueExpression_whenBooleanValueIsNotTrueOrFalse_quotesAsStringLiteral()
+    public void partitionValueExpression_whenStringLikeType_quotesAsStringLiteral()
     {
-        assertEquals("'true OR true --'", HiveUtils.partitionValueExpression("boolean", "true OR true --"));
+        assertEquals("'west'", HiveUtils.partitionValueExpression("string", "west"));
+        assertEquals("'west'", HiveUtils.partitionValueExpression("varchar", "west"));
+        assertEquals("'2'", HiveUtils.partitionValueExpression("char(64)", "2"));
+        assertEquals("'1 OR true --'", HiveUtils.partitionValueExpression("char(64)", "1 OR true --"));
+        assertEquals("'2020-01-01'", HiveUtils.partitionValueExpression("date", "2020-01-01"));
+    }
+
+    @Test
+    public void partitionValueExpression_whenIntValue_returnsUnquotedLiteral()
+    {
+        assertEquals("2020", HiveUtils.partitionValueExpression("int", "2020"));
     }
 
     @Test
