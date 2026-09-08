@@ -90,6 +90,14 @@ public class ImpalaUtilsTest
         assertEquals("'2'", ImpalaUtils.partitionValueExpression("char(64)", "2"));
         assertEquals("'1 OR true --'", ImpalaUtils.partitionValueExpression("char(64)", "1 OR true --"));
         assertEquals("'2020-01-01'", ImpalaUtils.partitionValueExpression("date", "2020-01-01"));
+        assertEquals("'2020-01-01'", ImpalaUtils.partitionValueExpression("date(10)", "2020-01-01"));
+        assertEquals("'2020-01-01'", ImpalaUtils.partitionValueExpression("DATE(", "2020-01-01"));
+    }
+
+    @Test
+    public void partitionValueExpression_whenColumnTypeIsNull_returnsUnquotedValue()
+    {
+        assertEquals("Hyderabad", ImpalaUtils.partitionValueExpression(null, "Hyderabad"));
     }
     
     @Test

@@ -91,6 +91,14 @@ public class HiveUtilsTest
         assertEquals("'2'", HiveUtils.partitionValueExpression("char(64)", "2"));
         assertEquals("'1 OR true --'", HiveUtils.partitionValueExpression("char(64)", "1 OR true --"));
         assertEquals("'2020-01-01'", HiveUtils.partitionValueExpression("date", "2020-01-01"));
+        assertEquals("'2020-01-01'", HiveUtils.partitionValueExpression("date(10)", "2020-01-01"));
+        assertEquals("'2020-01-01'", HiveUtils.partitionValueExpression("DATE(", "2020-01-01"));
+    }
+
+    @Test
+    public void partitionValueExpression_whenColumnTypeIsNull_returnsUnquotedValue()
+    {
+        assertEquals("Hyderabad", HiveUtils.partitionValueExpression(null, "Hyderabad"));
     }
 
     @Test
