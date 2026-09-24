@@ -110,13 +110,13 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void constructor_WithoutIAMAuth_CreatesConnection() {
+    public void constructor_withoutIamAuth_createsConnection() {
         NeptuneSparqlConnection nonIamConnection = new NeptuneSparqlConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION);
         assertNotNull(nonIamConnection);
     }
 
     @Test
-    public void hasNext_WithQueryResult_ReturnsCorrectBoolean() {
+    public void hasNext_withQueryResult_returnsCorrectBoolean() {
         when(mockQueryResult.hasNext()).thenReturn(true);
         assertTrue(connection.hasNext());
 
@@ -125,7 +125,7 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void next_WithIRIValue_ReturnsCorrectValue() {
+    public void next_withIriValue_returnsCorrectValue() {
         Set<String> bindingNames = new HashSet<>();
         bindingNames.add(SUBJECT);
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
@@ -138,7 +138,7 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void next_WithLiteralTypes_HandlesDifferentTypes() throws Exception {
+    public void next_withLiteralTypes_handlesDifferentTypes() throws Exception {
         when(mockQueryResult.next()).thenReturn(mockBindingSet);
         Set<String> bindingNames = new HashSet<>();
         bindingNames.add(BOOL_VAR);
@@ -164,7 +164,7 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void runQuery_WithValidQuery_ExecutesQuery() {
+    public void runQuery_withValidQuery_executesQuery() {
         when(mockConnection.prepareTupleQuery(any(), anyString())).thenReturn(mockTupleQuery);
         when(mockTupleQuery.evaluate()).thenReturn(mockQueryResult);
 
@@ -175,13 +175,13 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void safeCloseRepo_WithOpenConnection_ClosesConnection() {
+    public void safeCloseRepo_withOpenConnection_closesConnection() {
         connection.safeCloseRepo();
         verify(mockQueryResult).close();
     }
 
     @Test
-    public void next_WithNullValue_HandlesNullValue() {
+    public void next_withNullValue_handlesNullValue() {
         Set<String> bindingNames = new HashSet<>();
         bindingNames.add(SUBJECT);
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
@@ -195,7 +195,7 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void next_WithStringValue_ReturnsCorrectValue() {
+    public void next_withLongLiteral_returnsLongValue() {
         Set<String> bindingNames = new HashSet<>();
         bindingNames.add(SUBJECT);
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
@@ -207,35 +207,35 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void runQuery_WithMultipleConditions_ExecutesQuery() {
+    public void runQuery_withMultipleConditions_executesQuery() {
         connection.runQuery(MULTIPLE_CONDITIONS_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, MULTIPLE_CONDITIONS_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithNestedConditions_ExecutesQuery() {
+    public void runQuery_withNestedConditions_executesQuery() {
         connection.runQuery(NESTED_CONDITIONS_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, NESTED_CONDITIONS_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithOrderBy_ExecutesQuery() {
+    public void runQuery_withOrderBy_executesQuery() {
         connection.runQuery(ORDER_BY_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, ORDER_BY_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithLimit_ExecutesQuery() {
+    public void runQuery_withLimit_executesQuery() {
         connection.runQuery(LIMIT_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, LIMIT_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithDefaultLimit_ExecutesQuery() {
+    public void runQuery_withDefaultLimit_executesQuery() {
         String expectedQueryWithLimit = DEFAULT_QUERY + "\n" + Constants.SPARQL_QUERY_LIMIT;
         connection.runQuery(expectedQueryWithLimit);
         verify(mockConnection).prepareTupleQuery(eq(QueryLanguage.SPARQL),
@@ -244,49 +244,49 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void runQuery_WithTopN_ExecutesQuery() {
+    public void runQuery_withTopN_executesQuery() {
         connection.runQuery(TOP_N_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, TOP_N_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithMixedDataTypes_ExecutesQuery() {
+    public void runQuery_withMixedDataTypes_executesQuery() {
         connection.runQuery(MIXED_DATA_TYPES_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, MIXED_DATA_TYPES_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithNotEqualConditions_ExecutesQuery() {
+    public void runQuery_withNotEqualConditions_executesQuery() {
         connection.runQuery(NOT_EQUAL_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, NOT_EQUAL_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithLongValues_ExecutesQuery() {
+    public void runQuery_withLongValues_executesQuery() {
         connection.runQuery(LONG_VALUES_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, LONG_VALUES_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithBooleanLogic_ExecutesQuery() {
+    public void runQuery_withBooleanLogic_executesQuery() {
         connection.runQuery(BOOLEAN_LOGIC_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, BOOLEAN_LOGIC_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithFloatComparisons_ExecutesQuery() {
+    public void runQuery_withFloatComparisons_executesQuery() {
         connection.runQuery(FLOAT_COMPARISONS_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, FLOAT_COMPARISONS_QUERY);
         verify(mockTupleQuery).evaluate();
     }
 
     @Test
-    public void runQuery_WithMultipleOrderBy_ExecutesQuery() {
+    public void runQuery_withMultipleOrderBy_executesQuery() {
         connection.runQuery(MULTIPLE_ORDER_BY_QUERY);
         verify(mockConnection).prepareTupleQuery(QueryLanguage.SPARQL, MULTIPLE_ORDER_BY_QUERY);
         verify(mockTupleQuery).evaluate();

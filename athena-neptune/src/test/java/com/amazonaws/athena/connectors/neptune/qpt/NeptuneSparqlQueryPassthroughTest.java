@@ -63,16 +63,12 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithValidArguments_DoesNotThrowException() {
-        try {
-            queryPassthrough.verify(baseArguments);
-        } catch (Exception e) {
-            fail("Should not throw any exception");
-        }
+    public void verify_withValidArguments_doesNotThrowException() {
+        queryPassthrough.verify(baseArguments);
     }
 
     @Test
-    public void verify_WithEmptyArguments_ThrowsAthenaConnectorException() {
+    public void verify_withEmptyArguments_throwsAthenaConnectorException() {
         try {
             queryPassthrough.verify(new HashMap<>());
             fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
@@ -82,7 +78,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithMissingDatabase_ThrowsAthenaConnectorException() {
+    public void verify_withMissingDatabase_throwsAthenaConnectorException() {
         baseArguments.remove(DATABASE);
 
         try {
@@ -94,7 +90,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithMissingCollection_ThrowsAthenaConnectorException() {
+    public void verify_withMissingCollection_throwsAthenaConnectorException() {
         baseArguments.remove(COLLECTION);
 
         try {
@@ -106,7 +102,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithMissingQuery_ThrowsAthenaConnectorException() {
+    public void verify_withMissingQuery_throwsAthenaConnectorException() {
         baseArguments.remove(QUERY);
 
         try {
@@ -118,7 +114,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithTraverseAndQueryArguments_ThrowsAthenaConnectorException() {
+    public void verify_withTraverseAndQueryArguments_throwsAthenaConnectorException() {
         baseArguments.put("TRAVERSE", "g.V().hasLabel('airport')");
 
         try {
@@ -130,12 +126,12 @@ public class NeptuneSparqlQueryPassthroughTest {
     }
 
     @Test(expected = NullPointerException.class)
-    public void verify_WithNullArguments_ThrowsNullPointerException() {
+    public void verify_withNullArguments_throwsNullPointerException() {
         queryPassthrough.verify(null);
     }
 
     @Test
-    public void verify_WithEmptyQueryValue_ThrowsAthenaConnectorException() {
+    public void verify_withEmptyQueryValue_throwsAthenaConnectorException() {
         baseArguments.put(QUERY, "");
 
         try {

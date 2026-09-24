@@ -111,7 +111,7 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test
-    public void executeQuery_WithSparqlMode_ProcessesQuery() throws Exception {
+    public void executeQuery_withSparqlMode_executesQueryAndWritesRows() throws Exception {
         Schema schema = createRDFSchema();
         ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         when(sparqlConnection.hasNext()).thenReturn(true, false);
@@ -126,7 +126,7 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void executeQuery_WithRDFReadErrors_ThrowsRuntimeException() throws Exception {
+    public void executeQuery_whenRunQueryFails_throwsRuntimeException() throws Exception {
         Schema schema = createRDFSchema();
         ReadRecordsRequest request = createReadRecordsRequest(schema, Collections.emptyMap());
         doThrow(new RuntimeException()).when(sparqlConnection).runQuery(anyString());
@@ -135,9 +135,9 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void executeQuery_WithInvalidGraphType_ThrowsRuntimeException() throws Exception {
+    public void executeQuery_withMissingQueryMode_throwsRuntimeException() throws Exception {
         Schema schema = SchemaBuilder.newBuilder()
-            .addMetadata("componenttype", VERTEX_TYPE)
+            .addMetadata(Constants.SCHEMA_COMPONENT_TYPE, VERTEX_TYPE)
             .addStringField("id")
             .build();
 
@@ -146,7 +146,7 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test
-    public void executeQuery_WithClassMode_ProcessesQuery() throws Exception {
+    public void executeQuery_withClassMode_executesQueryAndWritesRows() throws Exception {
         Schema schema = SchemaBuilder.newBuilder()
                 .addMetadata(Constants.SCHEMA_QUERY_MODE, Constants.QUERY_MODE_CLASS)
                 .addMetadata(Constants.SCHEMA_CLASS_URI, CLASS_URI)
@@ -173,7 +173,7 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void executeQuery_WithInvalidQueryMode_ThrowsRuntimeException() throws Exception {
+    public void executeQuery_withInvalidQueryMode_throwsRuntimeException() throws Exception {
         Schema schema = SchemaBuilder.newBuilder()
                 .addMetadata(Constants.SCHEMA_QUERY_MODE, INVALID_QUERY_MODE)
                 .addMetadata(Constants.SCHEMA_COMPONENT_TYPE, INVALID_TYPE)
@@ -185,7 +185,7 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test(expected = RuntimeException.class)
-    public void executeQuery_WithMissingClassUri_ThrowsRuntimeException() throws Exception {
+    public void executeQuery_withMissingClassUri_throwsRuntimeException() throws Exception {
         Schema schema = SchemaBuilder.newBuilder()
             .addMetadata(Constants.SCHEMA_QUERY_MODE, QUERY_MODE_CLASS)
             .addMetadata(Constants.SCHEMA_PREDS_PREFIX, PREDS_PREFIX)
@@ -199,7 +199,7 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test
-    public void executeQuery_WithRDFQueryPassthrough_ProcessesPassthroughQuery() throws Exception {
+    public void executeQuery_withQueryPassthrough_executesQueryAndWritesRows() throws Exception {
         Schema schema = SchemaBuilder.newBuilder()
                 .addMetadata(Constants.SCHEMA_QUERY_MODE, Constants.QUERY_MODE_SPARQL)
                 .addMetadata(Constants.SCHEMA_COMPONENT_TYPE, SPARQL_TYPE)

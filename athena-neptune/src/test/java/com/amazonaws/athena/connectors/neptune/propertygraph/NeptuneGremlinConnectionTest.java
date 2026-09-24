@@ -62,7 +62,7 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    public void constructor_WithoutIAM_CreatesConnectionWithCorrectConfiguration() {
+    public void constructor_withoutIam_createsConnectionWithCorrectConfiguration() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
             when(mockBuilder.create()).thenReturn(mockCluster);
@@ -79,7 +79,7 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    public void constructor_WithIAM_CreatesConnectionWithHandshakeInterceptor() {
+    public void constructor_withIam_createsConnectionWithHandshakeInterceptor() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
             when(mockBuilder.handshakeInterceptor(any())).thenReturn(mockBuilder);
@@ -97,7 +97,7 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    public void getNeptuneClientConnection_WithValidConnection_ReturnsClient() {
+    public void getNeptuneClientConnection_withValidConnection_returnsClient() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
 
             Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
@@ -118,7 +118,7 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    public void getTraversalSource_WithValidClient_ReturnsTraversalSource() {
+    public void getTraversalSource_withValidClient_returnsTraversalSource() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class);
              MockedStatic<DriverRemoteConnection> mockedConnection = mockStatic(DriverRemoteConnection.class)) {
 
@@ -141,7 +141,7 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    public void closeCluster_WithValidConnection_ClosesCluster() {
+    public void closeCluster_withValidConnection_closesCluster() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster);
             when(mockBuilder.create()).thenReturn(mockCluster);

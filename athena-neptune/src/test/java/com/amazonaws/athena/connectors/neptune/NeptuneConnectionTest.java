@@ -71,7 +71,7 @@ public class NeptuneConnectionTest {
     }
 
     @Test
-    public void createConnection_WithPropertyGraphType_ReturnsNeptuneGremlinConnection() throws Exception {
+    public void createConnection_withPropertyGraphType_returnsNeptuneGremlinConnection() {
         configOptions.put(Constants.CFG_GRAPH_TYPE, PROPERTYGRAPH_TYPE);
 
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
@@ -92,7 +92,7 @@ public class NeptuneConnectionTest {
     }
 
     @Test
-    public void createConnection_WithRDFType_ReturnsNeptuneSparqlConnection() {
+    public void createConnection_withRdfType_returnsNeptuneSparqlConnection() {
         // Setup
         configOptions.put(Constants.CFG_GRAPH_TYPE, RDF_TYPE);
 
@@ -114,7 +114,7 @@ public class NeptuneConnectionTest {
     }
 
     @Test
-    public void createConnection_WithNullGraphType_ReturnsNeptuneGremlinConnection() {
+    public void createConnection_withNullGraphType_returnsNeptuneGremlinConnection() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
             when(mockBuilder.create()).thenReturn(mock(Cluster.class));
@@ -133,7 +133,7 @@ public class NeptuneConnectionTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void createConnection_WithInvalidGraphType_ThrowsIllegalArgumentException() {
+    public void createConnection_withInvalidGraphType_throwsIllegalArgumentException() {
         // Setup
         configOptions.put(Constants.CFG_GRAPH_TYPE, INVALID_TYPE);
         
@@ -142,7 +142,7 @@ public class NeptuneConnectionTest {
     }
 
     @Test
-    public void createConnection_WithIAMEnabled_ReturnsConnectionWithIAMEnabled() {
+    public void createConnection_withIamEnabled_returnsConnectionWithIamEnabled() {
         configOptions.put(Constants.CFG_GRAPH_TYPE, PROPERTYGRAPH_TYPE);
         configOptions.put(Constants.CFG_IAM, IAM_ENABLED);
 
@@ -161,7 +161,7 @@ public class NeptuneConnectionTest {
     }
 
     @Test
-    public void getNeptuneClientConnection_WithValidConnection_ReturnsNonNullClient() {
+    public void getNeptuneClientConnection_withValidConnection_returnsNonNullClient() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
             when(mockBuilder.create()).thenReturn(mock(Cluster.class));
@@ -181,7 +181,7 @@ public class NeptuneConnectionTest {
     }
 
     @Test
-    public void getTraversalSource_WithValidClient_ReturnsNonNullTraversalSource() {
+    public void getTraversalSource_withValidClient_returnsNonNullTraversalSource() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             Cluster.Builder mockBuilder = mockClusterBuilderChain(mockedCluster, false);
             when(mockBuilder.create()).thenReturn(mock(Cluster.class));

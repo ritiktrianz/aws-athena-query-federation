@@ -71,7 +71,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithIntegerValue_ReturnsIntegerObject() {
+    public void extractValue_withIntegerValue_returnsIntegerObject() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         testRow.put(TEST_FIELD_NAME, TEST_INT_VALUE);
         
@@ -80,7 +80,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithBigIntegerForIntegerField_ReturnsConvertedInteger() {
+    public void extractValue_withBigIntegerForIntegerField_returnsConvertedInteger() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         BigInteger bigInt = new BigInteger(BIG_INT_STRING);
         testRow.put(TEST_FIELD_NAME, bigInt);
@@ -90,7 +90,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithLongValue_ReturnsLongObject() {
+    public void extractValue_withLongValue_returnsLongObject() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
         testRow.put(TEST_FIELD_NAME, TEST_LONG_VALUE);
         
@@ -99,7 +99,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithBigIntegerForLongField_ReturnsConvertedLong() {
+    public void extractValue_withBigIntegerForLongField_returnsConvertedLong() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
         BigInteger bigInt = new BigInteger(BIG_INT_STRING);
         testRow.put(TEST_FIELD_NAME, bigInt);
@@ -109,7 +109,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithFloatValue_ReturnsFloatObject() {
+    public void extractValue_withFloatValue_returnsFloatObject() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
         testRow.put(TEST_FIELD_NAME, TEST_FLOAT_VALUE);
         
@@ -118,7 +118,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithBigDecimalForDoubleField_ReturnsConvertedDouble() {
+    public void extractValue_withBigDecimalForDoubleField_returnsConvertedDouble() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
         BigDecimal bigDec = new BigDecimal(BIG_DEC_STRING);
         testRow.put(TEST_FIELD_NAME, bigDec);
@@ -128,7 +128,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithBooleanValue_ReturnsBooleanObject() {
+    public void extractValue_withBooleanValue_returnsBooleanObject() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Bool()), null);
         testRow.put(TEST_FIELD_NAME, true);
         
@@ -137,7 +137,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithXMLGregorianCalendar_ReturnsFormattedDateString() throws Exception {
+    public void extractValue_withXmlGregorianCalendar_returnsFormattedDateString() throws Exception {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), null);
         
         GregorianCalendar cal = new GregorianCalendar();
@@ -151,7 +151,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test
-    public void extractValue_WithNullValue_ReturnsNull() {
+    public void extractValue_withNullValue_returnsNull() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         testRow.put(TEST_FIELD_NAME, null);
         
@@ -160,7 +160,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_WithLongValueAndInt32Field_ThrowsClassCastException() {
+    public void extractValue_withLongValueAndInt32Field_throwsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         testRow.put(TEST_FIELD_NAME, TEST_LONG_VALUE);
         
@@ -168,7 +168,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_WithIntValueAndInt64Field_ThrowsClassCastException() {
+    public void extractValue_withIntValueAndInt64Field_throwsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
         testRow.put(TEST_FIELD_NAME, TEST_INT_VALUE);
         
@@ -176,7 +176,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_WithDoubleValueAndFloat4Field_ThrowsClassCastException() {
+    public void extractValue_withDoubleValueAndFloat4Field_throwsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
         testRow.put(TEST_FIELD_NAME, TEST_DOUBLE_VALUE);
         
@@ -184,7 +184,7 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = ClassCastException.class)
-    public void extractValue_WithFloatValueAndFloat8Field_ThrowsClassCastException() {
+    public void extractValue_withFloatValueAndFloat8Field_throwsClassCastException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
         testRow.put(TEST_FIELD_NAME, TEST_FLOAT_VALUE);
         
@@ -192,13 +192,13 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = NullPointerException.class)
-    public void extractValue_WithNullContext_ThrowsNullPointerException() {
+    public void extractValue_withNullContext_throwsNullPointerException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         SparqlRowWriter.extractValue(null, field, Integer.class);
     }
 
     @Test
-    public void extractValue_WithMissingFieldInRow_ReturnsNull() {
+    public void extractValue_withMissingFieldInRow_returnsNull() {
         Field field = new Field("nonExistentField", FieldType.nullable(new ArrowType.Int(32, true)), null);
         testRow.put(TEST_FIELD_NAME, TEST_INT_VALUE);
         Object result = SparqlRowWriter.extractValue(testRow, field, Integer.class);
@@ -206,60 +206,60 @@ public class SparqlRowWriterTest {
     }
 
     @Test(expected = NullPointerException.class)
-    public void writeRowTemplate_WithNullRowWriterBuilder_ThrowsNullPointerException() {
+    public void writeRowTemplate_withNullRowWriterBuilder_throwsNullPointerException() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         SparqlRowWriter.writeRowTemplate(null, field);
     }
 
     @Test(expected = NullPointerException.class)
-    public void writeRowTemplate_WithNullField_ThrowsNullPointerException() {
+    public void writeRowTemplate_withNullField_throwsNullPointerException() {
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, null);
     }
 
     @Test
-    public void writeRowTemplate_WithBitField_RegistersBitExtractor() {
+    public void writeRowTemplate_withBitField_registersBitExtractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Bool()), null);
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, field);
         verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD_NAME), any());
     }
 
     @Test
-    public void writeRowTemplate_WithVarCharField_RegistersVarCharExtractor() {
+    public void writeRowTemplate_withVarCharField_registersVarCharExtractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Utf8()), null);
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, field);
         verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD_NAME), any());
     }
 
     @Test
-    public void writeRowTemplate_WithDateMilliField_RegistersDateMilliExtractor() {
+    public void writeRowTemplate_withDateMilliField_registersDateMilliExtractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), null);
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, field);
         verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD_NAME), any());
     }
 
     @Test
-    public void writeRowTemplate_WithIntField_RegistersIntExtractor() {
+    public void writeRowTemplate_withIntField_registersIntExtractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(32, true)), null);
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, field);
         verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD_NAME), any());
     }
 
     @Test
-    public void writeRowTemplate_WithBigIntField_RegistersBigIntExtractor() {
+    public void writeRowTemplate_withBigIntField_registersBigIntExtractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.Int(64, true)), null);
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, field);
         verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD_NAME), any());
     }
 
     @Test
-    public void writeRowTemplate_WithFloat4Field_RegistersFloat4Extractor() {
+    public void writeRowTemplate_withFloat4Field_registersFloat4Extractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), null);
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, field);
         verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD_NAME), any());
     }
 
     @Test
-    public void writeRowTemplate_WithFloat8Field_RegistersFloat8Extractor() {
+    public void writeRowTemplate_withFloat8Field_registersFloat8Extractor() {
         Field field = new Field(TEST_FIELD_NAME, FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), null);
         SparqlRowWriter.writeRowTemplate(mockRowWriterBuilder, field);
         verify(mockRowWriterBuilder).withExtractor(eq(TEST_FIELD_NAME), any());

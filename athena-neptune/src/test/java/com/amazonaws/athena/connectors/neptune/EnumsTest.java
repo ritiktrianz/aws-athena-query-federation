@@ -35,19 +35,19 @@ public class EnumsTest {
     private static final String INVALID_VALUE = "INVALID";
 
     @Test
-    public void graphTypeValues_ValidEnumValues_ReturnsCorrectEnumInstances() {
+    public void graphTypeValues_withValidEnumValues_returnsCorrectEnumInstances() {
         assertEquals(GRAPH_TYPE_COUNT, Enums.GraphType.values().length);
         assertEquals(Enums.GraphType.PROPERTYGRAPH, Enums.GraphType.valueOf(PROPERTYGRAPH_VALUE));
         assertEquals(Enums.GraphType.RDF, Enums.GraphType.valueOf(RDF_VALUE));
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void graphTypeValueOf_InvalidEnumValue_ThrowsIllegalArgumentException() {
+    public void graphTypeValueOf_withInvalidEnumValue_throwsIllegalArgumentException() {
         Enums.GraphType.valueOf(INVALID_VALUE);
     }
 
     @Test
-    public void tableSchemaMetaTypeValues_ValidEnumValues_ReturnsCorrectEnumInstances() {
+    public void tableSchemaMetaTypeValues_withValidEnumValues_returnsCorrectEnumInstances() {
         assertEquals(TABLE_SCHEMA_META_TYPE_COUNT, Enums.TableSchemaMetaType.values().length);
         assertEquals(Enums.TableSchemaMetaType.VERTEX, Enums.TableSchemaMetaType.valueOf(VERTEX_VALUE));
         assertEquals(Enums.TableSchemaMetaType.EDGE, Enums.TableSchemaMetaType.valueOf(EDGE_VALUE));
@@ -55,7 +55,7 @@ public class EnumsTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void tableSchemaMetaTypeValueOf_InvalidEnumValue_ThrowsIllegalArgumentException() {
+    public void tableSchemaMetaTypeValueOf_withInvalidEnumValue_throwsIllegalArgumentException() {
         Enums.TableSchemaMetaType.valueOf(INVALID_VALUE);
     }
 } 

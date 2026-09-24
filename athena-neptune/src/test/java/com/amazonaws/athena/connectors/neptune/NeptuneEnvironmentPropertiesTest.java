@@ -58,7 +58,7 @@ public class NeptuneEnvironmentPropertiesTest {
     }
 
     @Test
-    public void connectionPropertiesToEnvironment_WithValidProperties_ReturnsMappedEnvironment() {
+    public void connectionPropertiesToEnvironment_withValidProperties_returnsMappedEnvironment() {
         // Create input connection properties
         connectionProperties.put(HOST, TEST_ENDPOINT);
         connectionProperties.put(PORT, TEST_PORT);
@@ -75,7 +75,7 @@ public class NeptuneEnvironmentPropertiesTest {
     }
 
     @Test
-    public void connectionPropertiesToEnvironment_WithNullValues_HandlesNullValuesCorrectly() {
+    public void connectionPropertiesToEnvironment_withNullValues_handlesNullValuesCorrectly() {
         // Create input connection properties with null values
         connectionProperties.put(HOST, NULL_VALUE);
         connectionProperties.put(PORT, NULL_VALUE);

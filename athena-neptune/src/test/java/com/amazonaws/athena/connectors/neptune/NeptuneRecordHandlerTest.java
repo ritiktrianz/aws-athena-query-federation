@@ -20,8 +20,7 @@
 package com.amazonaws.athena.connectors.neptune;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -34,14 +33,12 @@ import com.amazonaws.athena.connector.lambda.data.S3BlockSpillReader;
 import com.amazonaws.athena.connector.lambda.data.SchemaBuilder;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
-import com.amazonaws.athena.connector.lambda.domain.predicate.EquatableValueSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Range;
 import com.amazonaws.athena.connector.lambda.domain.predicate.SortedRangeSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connector.lambda.domain.spill.S3SpillLocation;
 import com.amazonaws.athena.connector.lambda.domain.spill.SpillLocation;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsRequest;
-import com.amazonaws.athena.connector.lambda.records.ReadRecordsResponse;
 import com.amazonaws.athena.connector.lambda.records.RecordResponse;
 import com.amazonaws.athena.connector.lambda.records.RemoteReadRecordsResponse;
 import com.amazonaws.athena.connector.lambda.security.EncryptionKeyFactory;
@@ -50,11 +47,8 @@ import com.google.common.io.ByteStreams;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.tinkerpop.gremlin.driver.Client;
-import org.apache.tinkerpop.gremlin.driver.Result;
-import org.apache.tinkerpop.gremlin.driver.ResultSet;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty.Cardinality;
@@ -88,7 +82,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneRecordHandlerTest extends TestBase {
@@ -176,7 +169,7 @@ public class NeptuneRecordHandlerTest extends TestBase {
                     byteHolder.setBytes(ByteStreams.toByteArray(inputStream));
                     synchronized (mockS3Storage) {
                         mockS3Storage.add(byteHolder);
-                        logger.info("puObject: total size " + mockS3Storage.size());
+                        logger.info("putObject: total size " + mockS3Storage.size());
                     }
                     return PutObjectResponse.builder().build();
                 });
@@ -246,7 +239,7 @@ public class NeptuneRecordHandlerTest extends TestBase {
         vertex4.property("property3", 15);
         vertex4.property("property6", 13);
 
-        GraphTraversal<Vertex, Vertex> vertextTraversal = (GraphTraversal<Vertex, Vertex>) tinkerGraph.traversal().V();
+        GraphTraversal<Vertex, Vertex> vertextTraversal = tinkerGraph.traversal().V();
         when(graphTraversalSource.V()).thenReturn(vertextTraversal);
 
         //add edge from vertex1 to vertex2
@@ -254,12 +247,10 @@ public class NeptuneRecordHandlerTest extends TestBase {
 
         //add edge from vertex1 to vertex2 with attributes
         tinkerGraph.traversal().addE("default").from(vertex2).to(vertex3).property(T.id, "vertex2-vertex3").property(Cardinality.single, "property1", 21).next();
-
-        GraphTraversal<Edge, Edge>  edgeTraversal = (GraphTraversal<Edge, Edge>) tinkerGraph.traversal().E();
     }
 
     @Test
-    public void doReadRecords_WithSpill_ReturnsRemoteReadRecordsResponse() throws Exception {
+    public void doReadRecords_withSpill_returnsRemoteReadRecordsResponse() throws Exception {
         S3SpillLocation splitLoc = S3SpillLocation.newBuilder().withBucket(UUID.randomUUID().toString())
                 .withSplitId(UUID.randomUUID().toString()).withQueryId(UUID.randomUUID().toString())
                 .withIsDirectory(true).build();
@@ -282,19 +273,19 @@ public class NeptuneRecordHandlerTest extends TestBase {
         assertTrue(rawResponse instanceof RemoteReadRecordsResponse);
 
         try (RemoteReadRecordsResponse response = (RemoteReadRecordsResponse) rawResponse) {
-            logger.info("doReadRecordsSpill: remoteBlocks[{}]", response.getRemoteBlocks().size());
-
-            assertTrue(response.getNumberBlocks() == 1);
+            logger.info("doReadRecords_withSpill_returnsRemoteReadRecordsResponse: remoteBlocks[{}]", response.getRemoteBlocks().size());
+            
+            assertEquals(1, response.getNumberBlocks());
 
             int blockNum = 0;
             for (SpillLocation next : response.getRemoteBlocks()) {
                 S3SpillLocation spillLocation = (S3SpillLocation) next;
                 try (Block block = spillReader.read(spillLocation, response.getEncryptionKey(),
                         response.getSchema())) {
-                    logger.info("doReadRecordsSpill: blockNum[{}] and recordCount[{}]", blockNum++,
+                    logger.info("doReadRecords_withSpill_returnsRemoteReadRecordsResponse: blockNum[{}] and recordCount[{}]", blockNum++,
                             block.getRowCount());
 
-                    logger.info("doReadRecordsSpill: {}", BlockUtils.rowToString(block, 0));
+                    logger.info("doReadRecords_withSpill_returnsRemoteReadRecordsResponse: {}", BlockUtils.rowToString(block, 0));
                     assertNotNull(BlockUtils.rowToString(block, 0));
                 }
             }

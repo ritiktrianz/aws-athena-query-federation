@@ -49,24 +49,24 @@ public class NeptuneSparqlRepositoryTest {
     }
 
     @Test
-    public void neptuneSparqlRepository_WithoutAuthentication_CreatesValidRepository() {
+    public void neptuneSparqlRepository_withoutAuthentication_createsValidRepository() {
         NeptuneSparqlRepository repository = new NeptuneSparqlRepository(ENDPOINT);
         assertNotNull(repository);
     }
 
     @Test
-    public void neptuneSparqlRepository_WithAuthentication_CreatesValidRepository() throws NeptuneSigV4SignerException {
+    public void neptuneSparqlRepository_withAuthentication_createsValidRepository() throws NeptuneSigV4SignerException {
         NeptuneSparqlRepository repository = new NeptuneSparqlRepository(ENDPOINT, mockCredentialsProvider, REGION);
         assertNotNull(repository);
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void neptuneSparqlRepository_WithEmptyRegion_ThrowsIllegalArgumentException() throws Exception {
+    public void neptuneSparqlRepository_withEmptyRegion_throwsIllegalArgumentException() throws Exception {
         new NeptuneSparqlRepository(ENDPOINT, mockCredentialsProvider, EMPTY_REGION);
     }
 
     @Test
-    public void requestSigning_WithValidConfiguration_CompletesSuccessfully() throws NeptuneSigV4SignerException {
+    public void requestSigning_withValidConfiguration_completesSuccessfully() throws NeptuneSigV4SignerException {
         NeptuneSparqlRepository repository = new NeptuneSparqlRepository(
                 ENDPOINT,
                 mockCredentialsProvider,
