@@ -328,9 +328,6 @@ public class MetricsRecordHandlerTest
     {
         logger.info("readMetricSamplesRetriesWhenCloudWatchThrottles: enter");
 
-        MetricsRecordHandler retryHandler = new MetricsRecordHandler(mockS3, mockSecretsManager, mockAthena, mockMetrics,
-                ImmutableMap.of(MetricsRecordHandler.GET_METRIC_DATA_RETRY_MS, "5000"));
-
         String namespace = "namespace";
         String metricName = "metricName";
         String statistic = "p90";
@@ -400,7 +397,7 @@ public class MetricsRecordHandlerTest
                 100_000_000_000L
         );
 
-        RecordResponse rawResponse = retryHandler.doReadRecords(allocator, request);
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
 
         assertTrue(rawResponse instanceof ReadRecordsResponse);
         ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;

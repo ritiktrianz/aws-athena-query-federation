@@ -92,14 +92,10 @@ public class MetricsRecordHandler
     private static final long THROTTLING_INITIAL_DELAY = 140;
     private static final long THROTTLING_INCREMENTAL_INCREASE = 20;
     //How long to wait and retry GetMetricData after CloudWatch throttles, before failing the query.
-    //Override with the Lambda environment variable cloudwatch_get_metric_data_retry_ms.
-    @VisibleForTesting
-    static final String GET_METRIC_DATA_RETRY_MS = "cloudwatch_get_metric_data_retry_ms";
-    private static final long DEFAULT_GET_METRIC_DATA_RETRY_MS = 30_000L;
+    private static final long GET_METRIC_DATA_RETRY_MS = 30_000L;
 
     //Used to handle throttling events by applying AIMD congestion control
     private final ThrottlingInvoker invoker;
-    private final long getMetricDataRetryMs;
 
     private final S3Client amazonS3;
     private final CloudWatchClient cloudwatchClient;
@@ -118,27 +114,10 @@ public class MetricsRecordHandler
         super(amazonS3, secretsManager, athena, SOURCE_TYPE, configOptions);
         this.amazonS3 = amazonS3;
         this.cloudwatchClient = metrics;
-        this.getMetricDataRetryMs = readGetMetricDataRetryMs(configOptions);
         this.invoker = ThrottlingInvoker.newDefaultBuilder(EXCEPTION_FILTER, configOptions)
             .withInitialDelayMs(THROTTLING_INITIAL_DELAY)
             .withIncrease(THROTTLING_INCREMENTAL_INCREASE)
             .build();
-    }
-
-    /**
-     * Reads the retry budget from the Lambda environment. A missing value uses 30 seconds.
-     * Zero keeps the previous behavior and fails the query on the first throttle.
-     */
-    private static long readGetMetricDataRetryMs(java.util.Map<String, String> configOptions)
-    {
-        if (configOptions == null) {
-            return DEFAULT_GET_METRIC_DATA_RETRY_MS;
-        }
-        String configured = configOptions.get(GET_METRIC_DATA_RETRY_MS);
-        if (configured == null || configured.trim().isEmpty()) {
-            return DEFAULT_GET_METRIC_DATA_RETRY_MS;
-        }
-        return Long.parseLong(configured.trim());
     }
 
     /**
@@ -302,19 +281,19 @@ public class MetricsRecordHandler
     /**
      * Calls GetMetricData and, while this Lambda has not spilled any rows, waits through CloudWatch throttling.
      * ThrottlingInvoker fails the query on the first throttle when a spiller is attached and still empty. Detaching
-     * it lets the same call sleep and retry for the configured budget. After rows have spilled, the invoker must
+     * it lets the same call sleep and retry for up to 30 seconds. After rows have spilled, the invoker must
      * keep its normal retry path so Athena does not discard results it has already received.
      */
     private GetMetricDataResponse getMetricDataWithRetry(BlockSpiller blockSpiller, GetMetricDataRequest dataRequest)
             throws TimeoutException
     {
-        if (blockSpiller.spilled() || getMetricDataRetryMs <= 0) {
+        if (blockSpiller.spilled()) {
             return invoker.invoke(() -> cloudwatchClient.getMetricData(dataRequest));
         }
 
         invoker.setBlockSpiller(null);
         try {
-            return invoker.invoke(() -> cloudwatchClient.getMetricData(dataRequest), getMetricDataRetryMs);
+            return invoker.invoke(() -> cloudwatchClient.getMetricData(dataRequest), GET_METRIC_DATA_RETRY_MS);
         }
         finally {
             invoker.setBlockSpiller(blockSpiller);
