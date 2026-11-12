@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2026 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithValidArguments_DoesNotThrowException() {
+    public void verify_withValidArguments_doesNotThrowException() {
         try {
             queryPassthrough.verify(baseArguments);
         } catch (Exception e) {
@@ -75,7 +75,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithEmptyArguments_ThrowsAthenaConnectorException() {
+    public void verify_withEmptyArguments_throwsAthenaConnectorException() {
         try {
             queryPassthrough.verify(new HashMap<>());
             fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
@@ -85,7 +85,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithMissingDatabase_ThrowsAthenaConnectorException() {
+    public void verify_withMissingDatabase_throwsAthenaConnectorException() {
         baseArguments.remove(DATABASE);
 
         try {
@@ -97,7 +97,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithMissingCollection_ThrowsAthenaConnectorException() {
+    public void verify_withMissingCollection_throwsAthenaConnectorException() {
         baseArguments.remove(COLLECTION);
 
         try {
@@ -109,7 +109,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithMissingComponentType_ThrowsAthenaConnectorException() {
+    public void verify_withMissingComponentType_throwsAthenaConnectorException() {
         baseArguments.remove(COMPONENT_TYPE);
 
         try {
@@ -121,7 +121,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithMissingTraverse_ThrowsAthenaConnectorException() {
+    public void verify_withMissingTraverse_throwsAthenaConnectorException() {
         baseArguments.remove(TRAVERSE);
 
         try {
@@ -133,7 +133,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithTraverseAndQueryArguments_ThrowsAthenaConnectorException() {
+    public void verify_withTraverseAndQueryArguments_throwsAthenaConnectorException() {
         baseArguments.put("QUERY", "g.V().hasLabel('airport')");
 
         try {
@@ -145,26 +145,45 @@ public class NeptuneGremlinQueryPassthroughTest {
     }
 
     @Test
-    public void verify_WithInvalidTraverseSyntax_ThrowsAthenaConnectorException() {
+    public void verify_withProjectByValues_shouldNotThrowException() {
+        baseArguments.put(TRAVERSE, "g.V().hasLabel('airport').project('name').by(values('name'))");
+
+        try {
+            queryPassthrough.verify(baseArguments);
+        } catch (Exception e) {
+            fail("Should not throw any exception");
+        }
+    }
+
+    @Test
+    public void verify_withElementMap_shouldNotThrowException() {
+        baseArguments.put(TRAVERSE, "g.V().hasLabel('airport').elementMap()");
+
+        try {
+            queryPassthrough.verify(baseArguments);
+        } catch (Exception e) {
+            fail("Should not throw any exception");
+        }
+    }
+
+    @Test
+    public void verify_withTraverseWithoutValueMapSubstring_shouldNotThrowException() {
         baseArguments.put(TRAVERSE, "g.V().hasLabel('airport')");
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
-        } catch (AthenaConnectorException e) {
-            assertEquals("Unsupported gremlin query format: We are currently supporting only valueMap gremlin queries. " +
-                    "Please make sure you are using valueMap gremlin query. " +
-                    "Example for valueMap query is g.V().hasLabel(\\\"airport\\\").valueMap().limit(5)", e.getMessage());
+        } catch (Exception e) {
+            fail("Should not throw any exception");
         }
     }
 
     @Test(expected = NullPointerException.class)
-    public void verify_WithNullArguments_ThrowsNullPointerException() {
+    public void verify_withNullArguments_throwsNullPointerException() {
         queryPassthrough.verify(null);
     }
 
     @Test
-    public void verify_WithEmptyTraverseValue_ThrowsAthenaConnectorException() {
+    public void verify_withEmptyTraverseValue_throwsAthenaConnectorException() {
         baseArguments.put(TRAVERSE, "");
 
         try {
