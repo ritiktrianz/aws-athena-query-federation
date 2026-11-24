@@ -19,10 +19,12 @@
  */
 package com.amazonaws.athena.connectors.gcs.common;
 
+import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import org.junit.Before;
 import org.junit.Test;
 
 import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
 import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.Table;
 
@@ -35,6 +37,7 @@ import static com.amazonaws.athena.connectors.gcs.GcsConstants.PARTITION_PATTERN
 import static com.amazonaws.athena.connectors.gcs.GcsTestUtils.createColumn;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class PartitionUtilTest
@@ -54,7 +57,7 @@ public class PartitionUtilTest
         );
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void testFolderNameRegExPatterExpectException()
     {
         Table table = Table.builder()
@@ -66,7 +69,7 @@ public class PartitionUtilTest
         assertTrue(optionalRegEx.isPresent());
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void testFolderNameRegExPatter()
     {
         Table table = Table.builder()
@@ -80,7 +83,7 @@ public class PartitionUtilTest
         assertFalse("Expression shouldn't contain a '}' character", optionalRegEx.get().contains("}"));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void dynamicFolderExpressionWithDigits()
     {
         // Odd index matches, otherwise doesn't
@@ -109,7 +112,7 @@ public class PartitionUtilTest
         }
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void dynamicFolderExpressionWithDefaultsDates()
     {
         // Odd index matches, otherwise doesn't
@@ -208,7 +211,7 @@ public class PartitionUtilTest
         }
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void testGetHivePartitions()
     {
         String partitionPatten = "year=${year}/birth_month${month}/";
@@ -229,7 +232,7 @@ public class PartitionUtilTest
         assertEquals("Second hive column name value doesn't match", partitions.get("month"), 9);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void testGetHiveNonHivePartitions()
     {
         List<Column> columns = com.google.common.collect.ImmutableList.of(
@@ -259,7 +262,7 @@ public class PartitionUtilTest
         assertEquals("Third hive column name value doesn't match", partitions.get("day"), 12);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = AthenaConnectorException.class)
     public void testGetPartitionFolders()
     {
         // re-mock
@@ -424,5 +427,34 @@ public class PartitionUtilTest
             }
         }
         assertEquals("Match count should be 3", 3, matchCount);
+    }
+
+    @Test
+    public void testUnsupportedPartitionTypeReportsOperationNotSupported()
+    {
+        // defaultColumns contains a bigint partition key, which is not supported
+        Table table = Table.builder()
+                .storageDescriptor(storageDescriptor)
+                .partitionKeys(defaultColumns)
+                .parameters(com.google.common.collect.ImmutableMap.of(PARTITION_PATTERN_KEY, "year=${year}/"))
+                .build();
+        AthenaConnectorException ex = assertThrows(AthenaConnectorException.class, () -> PartitionUtil.getRegExExpression(table));
+        assertEquals(FederationSourceErrorCode.OPERATION_NOT_SUPPORTED_EXCEPTION.toString(), ex.getErrorDetails().errorCode());
+    }
+
+    @Test
+    public void testUnknownPlaceholderReportsInvalidInput()
+    {
+        // The placeholder is "year" but the only partition key is "yr"
+        List<Column> columns = com.google.common.collect.ImmutableList.of(createColumn("yr", "string"));
+        Table table = Table.builder()
+                .storageDescriptor(storageDescriptor)
+                .partitionKeys(columns)
+                .parameters(com.google.common.collect.ImmutableMap.of(PARTITION_PATTERN_KEY, "year=${year}/"))
+                .build();
+        String regex = PartitionUtil.getRegExExpression(table).get();
+        AthenaConnectorException ex = assertThrows(AthenaConnectorException.class,
+                () -> PartitionUtil.getPartitionColumnData("year=${year}/", "year=2000/", regex, columns));
+        assertEquals(FederationSourceErrorCode.INVALID_INPUT_EXCEPTION.toString(), ex.getErrorDetails().errorCode());
     }
 }

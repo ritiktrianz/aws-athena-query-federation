@@ -26,6 +26,7 @@ import com.amazonaws.athena.connector.lambda.data.BlockWriter;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.spill.SpillLocation;
+import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import com.amazonaws.athena.connector.lambda.handlers.GlueMetadataHandler;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsRequest;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsResponse;
@@ -50,6 +51,8 @@ import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Column;
 import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.ErrorDetails;
+import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
@@ -256,7 +259,8 @@ public class GcsMetadataHandler
             for (FieldVector fieldVector : partitions.getFieldVectors()) {
                 fieldVector.getReader().setPosition(curPartition);
                 if (fieldVector.getName().equalsIgnoreCase(FILE_FORMAT) || fieldVector.getName().equalsIgnoreCase(STORAGE_SPLIT_JSON)) {
-                    throw new RuntimeException("column name is same as metadata");
+                    throw new AthenaConnectorException("column name is same as metadata",
+                            ErrorDetails.builder().errorCode(FederationSourceErrorCode.INVALID_INPUT_EXCEPTION.toString()).build());
                 }
                 splitBuilder.add(fieldVector.getName(), fieldVector.getReader().readObject().toString());
             }

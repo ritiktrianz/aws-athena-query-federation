@@ -26,6 +26,7 @@ import com.amazonaws.athena.connector.lambda.data.BlockSpiller;
 import com.amazonaws.athena.connector.lambda.data.FieldResolver;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
+import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import com.amazonaws.athena.connector.lambda.handlers.RecordHandler;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsRequest;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -48,6 +49,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
+import software.amazon.awssdk.services.glue.model.ErrorDetails;
+import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
@@ -203,8 +206,12 @@ public class GcsRecordHandler
                         return 0;
                     }
                 }
+                catch (AthenaConnectorException ex) {
+                    throw ex;   // already classified (for example INVALID_INPUT from BlockUtils.setValue)
+                }
                 catch (Exception ex) {
-                    throw new RuntimeException("Error while processing field " + nextField.getName().toLowerCase(), ex);
+                    throw new AthenaConnectorException("Error while processing field " + nextField.getName().toLowerCase(), ex,
+                            ErrorDetails.builder().errorCode(FederationSourceErrorCode.INTERNAL_SERVICE_EXCEPTION.toString()).build());
                 }
             }
             return 1;
@@ -243,6 +250,7 @@ public class GcsRecordHandler
                 // for CSV, it won't work, so return none
                 return Optional.empty();
         }
-        throw new IllegalArgumentException("Table classification " + tableClassification + " is not supported by the connector");
+        throw new AthenaConnectorException("Table classification " + tableClassification + " is not supported by the connector",
+                ErrorDetails.builder().errorCode(FederationSourceErrorCode.OPERATION_NOT_SUPPORTED_EXCEPTION.toString()).build());
     }
 }

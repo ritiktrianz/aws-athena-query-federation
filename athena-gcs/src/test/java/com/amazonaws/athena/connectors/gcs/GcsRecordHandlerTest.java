@@ -20,8 +20,11 @@
 package com.amazonaws.athena.connectors.gcs;
 
 import com.amazonaws.athena.connector.lambda.QueryStatusChecker;
+import com.amazonaws.athena.connector.lambda.data.Block;
 import com.amazonaws.athena.connector.lambda.data.BlockAllocator;
 import com.amazonaws.athena.connector.lambda.data.BlockAllocatorImpl;
+import com.amazonaws.athena.connector.lambda.data.BlockSpiller;
+import com.amazonaws.athena.connector.lambda.data.BlockWriter;
 import com.amazonaws.athena.connector.lambda.data.S3BlockSpiller;
 import com.amazonaws.athena.connector.lambda.data.SpillConfig;
 import com.amazonaws.athena.connector.lambda.domain.Split;
@@ -29,6 +32,7 @@ import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ConstraintEvaluator;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.spill.S3SpillLocation;
+import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsRequest;
 import com.amazonaws.athena.connector.lambda.security.EncryptionKey;
 import com.amazonaws.athena.connector.lambda.security.EncryptionKeyFactory;
@@ -37,6 +41,7 @@ import com.amazonaws.athena.connector.lambda.security.LocalKeyFactory;
 import com.google.auth.oauth2.GoogleCredentials;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,20 +52,30 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
+import software.amazon.awssdk.services.glue.model.ErrorDetails;
+import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
 import static com.amazonaws.athena.connectors.gcs.GcsConstants.FILE_FORMAT;
 import static com.amazonaws.athena.connectors.gcs.GcsConstants.STORAGE_SPLIT_JSON;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -174,4 +189,64 @@ public class GcsRecordHandlerTest extends GenericGcsTest
         }
     }
 
+    @Test
+    public void testUnsupportedClassificationReportsOperationNotSupported() throws Exception
+    {
+        Method getSchemaFromSource = GcsRecordHandler.class.getDeclaredMethod("getSchemaFromSource", String.class, String.class);
+        getSchemaFromSource.setAccessible(true);
+        // JSON is a valid FileFormat but has no schema-inspection branch, so it reaches the unsupported-classification throw
+        InvocationTargetException thrown = assertThrows(InvocationTargetException.class,
+                () -> getSchemaFromSource.invoke(gcsRecordHandler, "gs://bucket/path/", "json"));
+        AthenaConnectorException ex = (AthenaConnectorException) thrown.getCause();
+        assertEquals(FederationSourceErrorCode.OPERATION_NOT_SUPPORTED_EXCEPTION.toString(), ex.getErrorDetails().errorCode());
+    }
+
+    @Test
+    public void testExecuteRethrowsAlreadyClassifiedException() throws Exception
+    {
+        AthenaConnectorException classified = new AthenaConnectorException("bad value",
+                ErrorDetails.builder().errorCode(FederationSourceErrorCode.INVALID_INPUT_EXCEPTION.toString()).build());
+        InvocationTargetException thrown = runExecuteWithFailingOffer(classified);
+        assertSame(classified, thrown.getCause(), "Classified exception should be rethrown unchanged");
+    }
+
+    @Test
+    public void testExecuteWrapsUnclassifiedExceptionAsInternalServiceError() throws Exception
+    {
+        RuntimeException cause = new RuntimeException("boom");
+        InvocationTargetException thrown = runExecuteWithFailingOffer(cause);
+        AthenaConnectorException ex = (AthenaConnectorException) thrown.getCause();
+        assertTrue(ex.getMessage().startsWith("Error while processing field id"), "Message should name the field");
+        assertEquals(FederationSourceErrorCode.INTERNAL_SERVICE_EXCEPTION.toString(), ex.getErrorDetails().errorCode());
+        assertSame(cause, ex.getCause(), "Original cause should be preserved");
+    }
+
+    /**
+     * Drives the private execute(...) method with a single INT field whose block write fails with the given exception.
+     */
+    private InvocationTargetException runExecuteWithFailingOffer(RuntimeException failure) throws Exception
+    {
+        Method execute = GcsRecordHandler.class.getDeclaredMethod("execute",
+                BlockSpiller.class, List.class, int.class, List.class, Split.class);
+        execute.setAccessible(true);
+
+        BlockSpiller spiller = mock(BlockSpiller.class);
+
+        try (Block block = mock(Block.class);
+             IntVector vector = new IntVector("id", bufferAllocator)) {
+            when(block.offerValue(anyString(), anyInt(), any())).thenThrow(failure);
+            doAnswer(invocation -> {
+                BlockWriter.RowWriter writer = invocation.getArgument(0);
+                writer.writeRows(block, 0);
+                return null;
+            }).when(spiller).writeRows(any(BlockWriter.RowWriter.class));
+
+            vector.allocateNew(1);
+            vector.setSafe(0, 1);
+            vector.setValueCount(1);
+            return assertThrows(InvocationTargetException.class,
+                    () -> execute.invoke(gcsRecordHandler, spiller, Collections.singletonList(vector), 0,
+                            Collections.emptyList(), null));
+        }
+    }
 }

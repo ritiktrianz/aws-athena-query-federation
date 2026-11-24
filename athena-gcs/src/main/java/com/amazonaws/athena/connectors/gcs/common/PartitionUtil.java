@@ -19,11 +19,14 @@
  */
 package com.amazonaws.athena.connectors.gcs.common;
 
+import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.ErrorDetails;
+import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
 import software.amazon.awssdk.services.glue.model.Table;
 
 import java.net.URI;
@@ -102,7 +105,8 @@ public class PartitionUtil
                     partitions.put(partitionPatternMatcher.group(1), partitionFolderMatcher.group(j));
                 }
                 else {
-                    throw new IllegalArgumentException("Column '" + partitionPatternMatcher.group(1) + "' is not defined as partition key in Glue Table");
+                    throw new AthenaConnectorException("Column '" + partitionPatternMatcher.group(1) + "' is not defined as partition key in Glue Table",
+                            ErrorDetails.builder().errorCode(FederationSourceErrorCode.INVALID_INPUT_EXCEPTION.toString()).build());
                 }
             }
         }
@@ -124,8 +128,9 @@ public class PartitionUtil
                 case "varchar":
                     return;
                 default:
-                    throw new IllegalArgumentException("Field type '" + columnType + "' is not supported for a partition field in this connector. " +
-                            "Supported partition field type is VARCHAR (string or varchar in a Glue Table Schema)");
+                    throw new AthenaConnectorException("Field type '" + columnType + "' is not supported for a partition field in this connector. " +
+                            "Supported partition field type is VARCHAR (string or varchar in a Glue Table Schema)",
+                            ErrorDetails.builder().errorCode(FederationSourceErrorCode.OPERATION_NOT_SUPPORTED_EXCEPTION.toString()).build());
             }
         }
     }
