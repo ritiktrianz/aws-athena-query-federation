@@ -19,13 +19,19 @@
  */
 package com.amazonaws.athena.connectors.gcs;
 
+import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.storage.StorageException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.mockito.Mockito;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.ErrorDetails;
+import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
+import software.amazon.awssdk.services.glue.model.GlueException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
@@ -37,7 +43,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.util.Collection;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -79,6 +87,100 @@ public class GcsCompositeHandlerTest extends GenericGcsTest {
         when(ServiceAccountCredentials.fromStream(Mockito.any())).thenReturn(serviceAccountCredentials);
         when(credentials.createScoped((Collection<String>) any())).thenReturn(credentials);
         GcsCompositeHandler gcsCompositeHandler = new GcsCompositeHandler();
-        assertTrue(gcsCompositeHandler instanceof GcsCompositeHandler);
+        assertInstanceOf(GcsCompositeHandler.class, gcsCompositeHandler);
+        // The composite handler should classify storage errors before they reach Athena.
+        Exception classified = gcsCompositeHandler.handleException(new StorageException(403, "Access denied"));
+        assertInstanceOf(AthenaConnectorException.class, classified);
+    }
+
+    @Test
+    public void handleGcsException_storageForbidden_returnsAccessDenied()
+    {
+        assertClassified(new StorageException(403, "Access denied"), FederationSourceErrorCode.ACCESS_DENIED_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_storageNotFound_returnsEntityNotFound()
+    {
+        assertClassified(new StorageException(404, "The specified bucket does not exist."), FederationSourceErrorCode.ENTITY_NOT_FOUND_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_storageUnauthorized_returnsInvalidCredentials()
+    {
+        assertClassified(new StorageException(401, "Invalid credentials"), FederationSourceErrorCode.INVALID_CREDENTIALS_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_storageTooManyRequests_returnsThrottling()
+    {
+        assertClassified(new StorageException(429, "Rate limit exceeded"), FederationSourceErrorCode.THROTTLING_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_storageServerError_returnsInternalService()
+    {
+        assertClassified(new StorageException(503, "Service unavailable"), FederationSourceErrorCode.INTERNAL_SERVICE_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_storageWithoutHttpStatus_returnsInternalService()
+    {
+        // A status of 0 means no HTTP response was received, for example a network failure.
+        assertClassified(new StorageException(0, "Connection reset"), FederationSourceErrorCode.INTERNAL_SERVICE_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_glueEntityNotFound_returnsEntityNotFound()
+    {
+        assertClassified(EntityNotFoundException.builder().message("Table not found").build(),
+                FederationSourceErrorCode.ENTITY_NOT_FOUND_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_glueForbidden_returnsAccessDenied()
+    {
+        GlueException glueException = (GlueException) GlueException.builder().statusCode(403).message("Not authorized").build();
+        assertClassified(glueException, FederationSourceErrorCode.ACCESS_DENIED_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_storageExceptionWrappedInRuntimeException_returnsClassifiedError()
+    {
+        Exception wrapped = new RuntimeException("Failed to list objects", new StorageException(404, "Not found"));
+        assertClassified(wrapped, FederationSourceErrorCode.ENTITY_NOT_FOUND_EXCEPTION);
+    }
+
+    @Test
+    public void handleGcsException_alreadyClassified_returnsSameInstance()
+    {
+        AthenaConnectorException existing = new AthenaConnectorException("already classified",
+                ErrorDetails.builder()
+                        .errorCode(FederationSourceErrorCode.INVALID_INPUT_EXCEPTION.toString())
+                        .build());
+        assertSame(existing, GcsCompositeHandler.handleGcsException(existing));
+    }
+
+    @Test
+    public void handleGcsException_causeCycle_returnsOriginalWithoutLooping()
+    {
+        RuntimeException a = new RuntimeException("a");
+        RuntimeException b = new RuntimeException("b", a);
+        a.initCause(b);
+        assertSame(a, GcsCompositeHandler.handleGcsException(a));
+    }
+
+    @Test
+    public void handleGcsException_unrelatedException_returnsSameInstance()
+    {
+        Exception unrelated = new IllegalStateException("something else");
+        assertSame(unrelated, GcsCompositeHandler.handleGcsException(unrelated));
+    }
+
+    private void assertClassified(Exception input, FederationSourceErrorCode expectedCode)
+    {
+        Exception result = GcsCompositeHandler.handleGcsException(input);
+        AthenaConnectorException ex = assertInstanceOf(AthenaConnectorException.class, result);
+        assertEquals(expectedCode.toString(), ex.getErrorDetails().errorCode());
     }
 }
